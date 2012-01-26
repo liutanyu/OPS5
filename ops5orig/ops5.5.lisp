@@ -1,19 +1,19 @@
-#|
-Article 1005 of comp.sources.unix:
-Path: s.cc.purdue.edu!h.cc.purdue.edu!j.cc.purdue.edu!pur-ee!iuvax!inuxc!ihnp4!ptsfa!pyramid!decwrl!sun!pitstop!sundc!seismo!uunet!rsalz
-From: rsalz@uunet.UU.NET (Rich Salz)
-Newsgroups: comp.sources.unix
-Subject: v12i020:  OPS5 in Common Lisp, Part05/05
-Message-ID: <2263@uunet.UU.NET>
-Date: 14 Oct 87 02:22:40 GMT
-Organization: UUNET Communications Services, Arlington, VA
-Lines: 732
-Approved: rs@uunet.UU.NET
+;;;;
+;;;;Article 1005 of comp.sources.unix:
+;;;;Path: s.cc.purdue.edu!h.cc.purdue.edu!j.cc.purdue.edu!pur-ee!iuvax!inuxc!ihnp4!ptsfa!pyramid!decwrl!sun!pitstop!sundc!seismo!uunet!rsalz
+;;;;From: rsalz@uunet.UU.NET (Rich Salz)
+;;;;Newsgroups: comp.sources.unix
+;;;;Subject: v12i020:  OPS5 in Common Lisp, Part05/05
+;;;;Message-ID: <2263@uunet.UU.NET>
+;;;;Date: 14 Oct 87 02:22:40 GMT
+;;;;Organization: UUNET Communications Services, Arlington, VA
+;;;;Lines: 745
+;;;;Approved: rs@uunet.UU.NET
 
-Submitted-by: eric@dlcdev.UUCP (eric van tassell)
-Posting-number: Volume 12, Issue 20
-Archive-name: ops5/part05
-#|
+;;;;Submitted-by: eric@dlcdev.UUCP (eric van tassell)
+;;;;Posting-number: Volume 12, Issue 20
+;;;;Archive-name: ops5/part05
+;;;;
 
 ;;; printing production memory
 
@@ -743,5 +743,3 @@ Archive-name: ops5/part05
 	(t (cons (car list) (rematm atm (cdr list))))))
 
 (defun broken (rule) (member rule *brkpts* :test #'eq))
-
-
