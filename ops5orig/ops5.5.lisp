@@ -1,3 +1,4 @@
+#|
 Article 1005 of comp.sources.unix:
 Path: s.cc.purdue.edu!h.cc.purdue.edu!j.cc.purdue.edu!pur-ee!iuvax!inuxc!ihnp4!ptsfa!pyramid!decwrl!sun!pitstop!sundc!seismo!uunet!rsalz
 From: rsalz@uunet.UU.NET (Rich Salz)
@@ -12,6 +13,7 @@ Approved: rs@uunet.UU.NET
 Submitted-by: eric@dlcdev.UUCP (eric van tassell)
 Posting-number: Volume 12, Issue 20
 Archive-name: ops5/part05
+#|
 
 ;;; printing production memory
 
