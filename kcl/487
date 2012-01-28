@@ -1,0 +1,1516 @@
+Path: titcca!ccut!tansei!a49915
+From: a49915@tansei.cc.u-tokyo.JUNET (Akiumi Hasegawa)
+Newsgroups: fj.sources
+Subject: ops5 for kcl 3/3 (In Japanese)
+Keywords: ops5
+Message-ID: <1018@tansei.cc.u-tokyo.JUNET>
+Date: 24 Oct 87 01:57:20 GMT
+Distribution: fj
+Organization: Computer Center, University of Tokyo, Japan.
+Lines: 1505
+
+
+; mapwm maps down the elements of wm, applying fn to each element
+; each element is of form (datum . creation-time)
+
+(defun mapwm (fn)
+  (prog (wmp1 part)
+        (setq wmp1 *wmpart-list*)
+   lab1 (when (atom wmp1) (return nil))
+        (setq part (get (car wmp1) 'wmpart*))
+        (setq wmp1 (cdr wmp1))
+        (mapc fn part)
+        (go lab1)))
+
+(defmacro wm (&rest z) `(wm* ',z))
+
+(defun wm* (a)
+  (mapc #'(lambda (z) (terpr) (ppelm z t))
+        (get-wm a))
+  (terpr))
+
+(defun get-wm (z)
+  (setq *wm-filter* z *wm* nil)
+  (mapwm #'get-wm2)
+  (prog1 *wm* (setq *wm* nil)))
+
+(defun get-wm2 (elem)
+ (cond ((or (null *wm-filter*)
+             (member (cdr elem) *wm-filter* :test #'equal))
+        (setq *wm* (cons (car elem) *wm*)))))
+
+(defun wm-hash (x)
+ (cond ((not x) '<default>)
+       ((not (car x)) (wm-hash (cdr x)))
+       ((symbolp (car x)) (car x))
+       (t (wm-hash (cdr x)))))
+
+(defun creation-time (wme)
+ (cdr (assoc wme (get (wm-hash wme) 'wmpart*))))
+
+(defun refresh nil
+  (prog nil
+        (setq *old-wm* nil)
+        (mapwm #'refresh-collect)
+        (mapc #'refresh-del *old-wm*)
+        (mapc #'refresh-add *old-wm*)
+        (setq *old-wm* nil)))
+
+(defun refresh-collect (x) (push x *old-wm*))
+
+(defun refresh-del (x) (remove-from-wm (car x)))
+
+(defun refresh-add (x) (add-to-wm (car x) (cdr x)))
+
+(defun trace-file nil
+  (prog (port)
+        (setq port t)
+        (when *trace-file*
+               (setq port ($ofile *trace-file*))
+               (when (null port)
+                     (%warn "trace: file has been closed"
+                            *trace-file*)
+                     (setq port t)))
+        (return port)))
+
+;;; basic functions for rhs evaluation
+
+(defun eval-rhs (pname data)
+  (prog (node port)
+    (when *ptrace*
+           (setq port (trace-file))
+           (terpr port)
+           (princ *cycle-count* port)
+           (princ ". " port)
+           (princ pname port)
+           (time-tag-print data port))
+    (setq *data-matched* data
+          *p-name*       pname
+          *last*         nil
+          node           (get pname 'topnode))
+    (init-var-mem (var-part node))
+    (init-ce-var-mem (ce-var-part node))
+    (begin-record pname data)
+    (setq *in-rhs* t)
+    (eval (rhs-part node))
+    (setq *in-rhs* nil)
+    (end-record)))
+
+(defun time-tag-print (data port)
+  (unless (null data)
+          (time-tag-print (cdr data) port)
+          (ops5-princ " " port)
+          (ops5-princ (creation-time (car data)) port))))
+
+(defun init-var-mem (vlist)
+  (prog (v ind r)
+        (setq *variable-memory* nil)
+   top  (when (atom vlist) (return nil))
+        (setq v (car vlist) ind (cadr vlist))
+        (setq vlist (cddr vlist))
+        (setq r (gelm *data-matched* ind))
+        (push (cons v r) *variable-memory*)
+        (go top)))
+
+(defun init-ce-var-mem (vlist)
+  (prog (v ind r)
+        (setq *ce-variable-memory* nil)
+   top  (when (atom vlist) (return nil))
+        (setq v (car vlist) ind (cadr vlist))
+        (setq vlist (cddr vlist))
+        (setq r (ce-gelm *data-matched* ind))
+        (push (cons v r) *ce-variable-memory*)
+        (go top)))
+
+(defun make-ce-var-bind (var elem)
+  (push (cons var elem) *ce-variable-memory*))
+
+(defun make-var-bind (var elem)
+  (push (cons var elem) *variable-memory*))
+
+(defun $varbind (x)
+  (prog (r)
+        (unless *in-rhs* (return x))
+        (setq r (assoc x *variable-memory*))
+        (if r (return (cdr r))
+              (return x))))
+
+(defun get-ce-var-bind (x)
+  (prog (r)
+        (when (numberp x)(return (get-num-ce x)))
+        (setq r (assoc x *ce-variable-memory*))
+        (if r (return (cdr r))
+              (return nil))))
+
+(defun get-num-ce (x)
+ (prog (r l d)
+       (setq r *data-matched*)
+       (setq l (length r))
+       (setq d (- l x))
+       (when (> 0 d) (return nil))
+  la   (cond ((null r)(return nil))
+             ((> 1 d)(return (car r))))
+       (decf d 1)
+       (setq r (cdr r))
+       (go la)))
+
+(defun build-collect (z)
+  (prog (r)
+   la   (when (atom z) (return nil))
+        (setq r (car z))
+        (setq z (cdr z))
+        (cond ((consp r)
+               ($value '\()
+               (build-collect r)
+               ($value '\)))
+              ((eq r '\\)($change (car z)) (setq z (cdr z)))
+              (t ($value r)))
+        (go la)))
+
+(defun unflat (x) (setq *rest* x)(unflat*))
+
+(defun unflat* nil
+  (prog (c)
+        (when (atom *rest*)(return nil))
+        (setq c (car *rest*))
+        (setq *rest* (cdr *rest*))
+        (cond ((eq c '\()(return (cons (unflat*) (unflat*))))
+              ((eq c '\))(return nil))
+              (t (return (cons c (unflat*)))))))
+
+(defun $change (x)
+  (prog nil
+   (if (consp x)(eval-function x)
+                ($value ($varbind x)))))
+
+(defun eval-args (z)
+  (prog (r)
+        (rhs-tab 1)
+   la   (when (atom z)(return nil))
+        (setq r (car z))
+        (setq z (cdr z))
+        (when (eq r '^)
+              (rhs-tab (car z))
+              (setq r (cadr z))
+              (setq z (cddr z)))
+        (cond ((eq r '//)($value (car z)) (setq z (cdr z)))
+               (t ($change r)))
+        (go la)))
+
+(defun eval-function (form)
+  (if *in-rhs*
+      (eval form)
+      (%warn "functions cannot be used at toplevel" (car form))))
+
+;;; functions to manipulate the result array
+
+(defun $reset nil (setq *max-index* 0) (setq *next-index* 1))
+
+; rhs-tab implements the tab ('^') function in the rhs. it has
+; four responsibilities:
+;  - to move the array pointers
+;  - to watch for tabbing off the left end of the array
+;    (ie, to watch for pointers less than 1)
+;  - to watch for tabbing off the right end of the array
+;  - to write nil in all the slots that are skipped
+; the last is necessary if the result array is not to be cleared
+; after each use; if rhs-tab did not do this, $reset
+; would be muchslower.
+
+(defun rhs-tab (z) ($tab ($varbind z)))
+
+(defun $tab (z)
+ (prog (edge next)
+       (setq next ($litbind z))
+       (when (floatp next) (setq next (fix next)))
+       (cond ((or (not (numberp next))
+                  (> next *size-result-array*)
+                  (> 1 next))
+              (%warn "illegal index after ^" next)
+              (return *next-index*)))
+       (setq edge (1- next))
+       (when (< *max-index* edge)
+             (fill *result-array* nil :start (1+ *max-index*)
+                                      :end   next))
+ok     (setq *next-index* next)
+       (return next)))
+
+(defun $value (v)
+  (cond ((> *next-index* *size-result-array*)
+         (%warn "index too large" *next-index*))
+        (t
+         (when (> *next-index* *max-index*)
+               (setq *max-index* *next-index*))
+         (vset *result-array* *next-index* v)
+         (incf *next-index* 1))))
+
+(defun use-result-array nil
+  (do ((k *max-index* (1- k))
+       (r nil (cons (svref *result-array* k) r)))
+      ((zerop k) r)))
+
+(defun $assert nil
+  (setq *last* (use-result-array))
+  (add-to-wm *last* nil))
+
+(defun $parametercount nil *max-index*)
+
+(defun $parameter (k)
+ (cond ((or (not (numberp k)) (> k *size-result-array*)(< k 1))
+        (%warn "illegal parameter number " k)
+        nil)
+       ((> k *max-index*) nil)
+       (t (svref *result-array* k))))
+
+;;; rhs actions
+
+(defmacro make (&rest z) `(make* ',z))
+
+(defun make* (l)
+ (prog nil
+       ($reset)
+       (eval-args l)
+       ($assert)))
+
+(defmacro modify (&rest z) `(modify* ',z))
+
+(defun modify* (z)
+  (prog (old)
+        (unless *in-rhs*
+                (%warn "cannot be used at top level" 'modify)
+                (return nil))
+        (setq old (get-ce-var-bind (car z)))
+        (when (null old)
+              (%warn "modify: first argument must be an element variable"
+                     (car z))
+              (return nil))
+        (remove-from-wm old)
+        (setq z (cdr z))
+        ($reset)
+  copy  (when (atom old)(go fin))
+        ($change (car old))
+        (setq old (cdr old))
+        (go copy)
+    fin (eval-args z)
+        ($assert)))
+
+(defmacro bind (&rest z) `(bind* ',z))
+
+(defun bind* (z)
+  (prog (val)
+        (unless *in-rhs*
+                (%warn "cannot be used at top level" 'bind)
+                (return nil))
+        (cond ((< (length z) 1)
+               (%warn "bind: wrong number of arguments to" z)
+               (return nil))
+              ((not (symbolp (car z)))
+               (%warn "bind: illegal argument" (car z))
+               (return nil))
+              ((= (length z) 1) (setq val (gensym)))
+              (t ($reset)
+                 (eval-args (cdr z))
+                 (setq val ($parameter 1))))
+        (make-var-bind (car z) val)))
+
+(defmacro cbind (&rest z) `(cbind* ',z))
+
+(defun cbind* (z)
+  (cond ((not *in-rhs*)
+         (%warn "can not be called at top level" 'cbind))
+        ((not (= (length z) 1))
+         (%warn "cbind: wrong number of arguments" z))
+        ((not (symbolp (car z)))
+         (%warn "cbind: illegal argument" (car z)))
+        ((null *last*)
+         (%warn "cbind: nothing added yet" (car z)))
+        (t (make-ce-var-bind (car z) *last*))))
+
+(defmacro remove (&rest z) `(remove* ',z))
+
+(defun remove* (z)
+  (prog (old)
+        (unless *in-rhs* (return (top-level-remove z)))
+    top (when (atom z)(return nil))
+        (setq old (get-ce-var-bind (car z)))
+        (when (null old)
+              (%warn "remove: argument not an element variable" (car z))
+              (return nil))
+        (remove-from-wm old)
+        (setq z (cdr z))
+        (go top)))
+
+(defmacro call (&rest z) `(call* ',z))
+
+(defun call* (z)
+  (prog (f)
+        (setq f (car z))
+        ($reset)
+        (eval-args (cdr z))
+        (funcall f nil)))
+
+(defmacro write (&rest l) `(write* ',l))
+
+(defun write* (z)
+  (prog (port max k x needspace)
+        (unless *in-rhs*
+                (%warn "cannot be called at top level" 'write)
+                (return nil))
+        ($reset)
+        (eval-args z)
+        (setq k 1)
+        (setq max ($parametercount))
+        (when (< max 1)
+              (%warn "write: nothing to print" z)
+              (return nil))
+        (setq port (default-write-file))
+        (setq x ($parameter 1))
+        (cond ((and (symbolp x)($ofile x))
+               (setq port ($ofile x))
+               (setq k 2)))
+        (setq needspace t)
+   la   (when (> k max)(return nil))
+        (setq x ($parameter k))
+        (cond ((eq x '|=== c r l f ===|)
+               (setq needspace nil)
+               (terpr port))
+              ((eq x '|=== r j u s t ===|)
+               (setq k (+ 2 k))
+               (do-rjust ($parameter (1- k))($parameter k) port))
+              ((eq x '|=== t a b t o ===|)
+               (setq needspace nil)
+               (incf k 1)
+               (do-tabto ($parameter k) port))
+              (t
+               (and needspace (ops5-princ " " port))
+               (setq needspace t)
+               (ops5-princ x port)))
+        (incf k 1)
+        (go la)))
+
+(defun default-write-file nil
+  (prog (port)
+        (setq port t)
+        (when *write-file*
+              (setq port ($ofile *write-file*))
+              (when (null port)
+                    (%warn "write: file has been closed" *write-file*)
+                    (setq port t)))
+        (return port)))
+
+(defun do-rjust (width value port)
+  (prog (size)
+      (case value
+            (|=== t a b t o ===|
+             (%warn "rjust cannot be precede this function" 'tabto)
+             (return nil))
+            (|=== c r l f ===|
+             (%warn "rjust cannot precede this function" 'crlf)
+             (return nil))
+            (|=== r j u s t ===|
+             (%warn "rjust cannot precede this function" 'rjust)
+             (return nil)))
+      (setq size (flatc value))
+      (when (> size width)
+            (ops5-princ " " port)
+            (ops5-princ value port)
+            (return nil))
+      (do ((k (- width size) (1- k)))
+          ((not (> k 0)))
+          (ops5-princ " " port))
+      (ops5-princ value port)))
+
+(defun do-tabto (col port)(tab col port))
+
+(defun halt nil
+   (if *in-rhs*
+       (setq *halt-flag* t)
+       (%warn "cannot be called at top level" 'halt)))
+
+(defmacro build (&rest z) `(build* ',z)))
+
+(defun build* (z)
+  (prog (r)
+     (unless *in-rhs*
+             (%warn "cannot be called at top level" 'build)
+             (return nil))
+     ($reset)
+     (build-collect z)
+     (setq r (unflat (use-result-array)))
+     (when *build-trace* (funcall *build-trace* r))
+     (compile-production (car r) (cdr r)))))
+
+(defmacro openfile (&rest z) `(openfile* ',z))
+
+(defun openfile* (z)
+  (prog (file mode id)
+        ($reset)
+        (eval-args z)
+        (unless (= ($parametercount) 3)
+                (%warn "openfile: wrong number of arguments" z)
+                (return nil))
+        (setq id   ($parameter 1)
+              file ($parameter 2)
+              mode ($parameter 3))
+        (cond ((not (symbolp id))
+               (%warn "openfile: file id must be a symbol" id)
+               (return nil))
+              ((null id)
+               (%warn "openfile: file id 'nil' is illegal" nil)
+               (return nil))
+              ((or ($ifile id)($ofile id))
+               (%warn "openfile: file already in use" id)
+               (return nil)))
+      (case mode
+            (in
+             (if (probe-file file)
+                 (putprop id (open file :direction :input) 'inputfile)
+                 (%warn "openfile: file not-found" file)))
+            (out
+             (putprop id 
+                      (open file :direction :output
+                                 :if-exists :overwrite
+                                 :if-does-not-exist :create) 
+                      'outputfile))
+            (t (%warn "openfile: illegal mode" mode)))
+   (return nil)))
+
+(defun $ifile (x)
+  (if (symbolp x)(get x 'inputfile) nil))
+
+(defun $ofile (x)
+  (if (symbolp x)(get x 'outputfile) nil))
+
+(defmacro closefile (&rest l) `(closefile* ',l))
+
+(defun closefile* (z)
+  ($reset)
+  (eval-args z)
+  (mapc #'closefile2 (use-result-array)))
+
+(defun closefile2 (file)
+  (prog (port)
+    (cond ((not (symbolp file))
+           (%warn "closefile: illegal file identifier" file))
+          ((setq port ($ifile file))
+           (close port)
+           (remprop file 'inputfile))
+          ((setq port ($ofile file))
+           (close port)
+           (remprop file 'outputfile)))
+    (return nil)))
+
+(defmacro default (&rest z) `(default* ',z))
+
+(defun default* (z)
+  (prog (file use)
+        ($reset)
+        (eval-args z)
+        (unless (= ($parametercount) 2)
+                (%warn "default: wrong number of arguments" z)
+                (return nil))
+        (setq file ($parameter 1)
+              use  ($parameter 2))
+        (cond ((not (symbolp file))
+               (%warn "default: illegal file identifier" file)
+               (return nil))
+              ((not (member use '(accept write trace)))
+               (%warn "default: illegal use for file" use)
+               (return nil))
+              ((and (member use '(write trace))
+                    (not (null file))
+                    (not ($ofile file)))
+               (%warn "default: file has not been opened for output" file)
+               (return nil))
+              ((and (eq use 'accept)
+                    (not (null file))
+                    (not ($ifile file)))
+               (%warn "default: file has not been opened for input" file)
+               (return nil))
+              ((eq use 'write)(setq *write-file* file))
+              ((eq use 'accept)(setq *accept-file* file))
+              ((eq use 'trace)(setq *trace-file* file)))
+     (return nil)))
+
+;;; rhs functions
+
+(defmacro accept (&rest z) `(accept* ',z))
+
+(defun accept* (z)
+  (prog (port arg)
+        (when (> (length z) 1)
+              (%warn "accept: wrong number of arguments" z)
+              (return nil))
+        (setq port t)
+        (when *accept-file*
+              (setq port ($ifile *accept-file*))
+              (when (null port)
+                    (%warn "accept: file has been closed"
+                           *accept-file*)
+                    (return nil)))
+        (when (= (length z) 1)
+              (setq arg ($varbind (car z)))
+              (unless (symbolp arg)
+                      (%warn "accept: illegal file name" arg)
+                      (return nil))
+              (setq port ($ifile arg))
+              (when (null port)
+                    (%warn "accept: file not open for input" arg)
+                    (return nil)))
+        (flat-value (read port nil 'end-of-file))))
+
+(defun flat-value (x)
+  (if (atom x)($value x)
+      (mapc #'flat-value x)))
+
+(defun span-chars (x prt)
+  (prog (ch)
+   l    (setq ch (peek-char nil prt))
+        (when (member ch x)
+              (read-char prt)
+              (go l))))
+
+(defmacro acceptline (&rest z) `(acceptline* ',z))
+
+(defun acceptline* (z)
+  (prog (c def arg port)
+        (setq port t def z)
+        (when *accept-file*
+              (setq port ($ifile *accept-file*))
+              (when (null port)
+                    (%warn "acceptline: file has been closed"
+                           *accept-file*)
+                    (return nil)))
+        (when (> (length def) 0)
+              (setq arg ($varbind (car def)))
+              (when (and (symbolp arg)($ifile arg))
+                    (setq port ($ifile))
+                    (setq def (cdr def))))
+        (span-chars '(#\( #\)) port)
+        (setq c (read-char port nil nil))
+        (when (member (peek-char nil port nil nil)
+                      '(nil #\Newline))
+              (mapc #'$change def)
+              (return nil))
+      l (flat-value (read port))
+        (span-chars '(#\( #\)) port)
+        (unless (member (peek-char nil port nil nil)
+                        '(nil #\Newline))
+                (go l)))))
+
+(defmacro substr (&rest z) `(substr* ',z))
+
+(defun substr* (l)
+  (prog (k elm start end)
+        (unless (eq (length l) 3)
+                (%warn "substr: wrong number of arguments" l)
+                (return nil))
+        (setq elm (get-ce-var-bind (car l)))
+        (when (null elm)
+              (%warn "first argument to substr must be a ce var" l)
+              (return nil))
+        (setq start ($varbind (cadr l)))
+        (setq start ($litbind start))
+        (unless (numberp start)
+                (%warn "second argument to substr must be a number" l)
+                (return nil))
+        (setq end ($varbind (caddr l)))
+        (when (eq end 'inf)(setq end (length elm)))
+        (setq end ($litbind end))
+        (unless (numberp end)
+                (%warn "third argument to substr must be a number" l)
+                (return nil))
+;this loop dose not check for the end of elm
+;                 instead it relies on cdr or nil being nil
+;                 this may not work in all versions of lisp
+        (setq k 1)
+   la   (cond ((> k end)(return nil))
+              ((not (< k start)) ($value (car elm))))
+        (setq elm (cdr elm))
+        (incf k 1)
+        (go la)))
+
+(defmacro compute (&rest z) `(compute* ',z))
+
+(defun compute* (x)($value (ari x)))
+
+; arith is the obsolete form of compute
+
+(defmacro arith (&rest z) `(compute* ',z))
+
+(defun ari (x)
+  (cond ((atom x)
+         (%warn "bad syntax in arithmetic expression" x)
+         0)
+        ((atom (cdr x))(ari-unit (car x)))
+        ((eq (cadr x) '+)
+         (+ (ari-unit (car x)) (ari (cddr x))))
+        ((eq (cadr x) '-)
+         (- (ari-unit (car x)) (ari (cddr x))))
+        ((eq (cadr x) '*)
+         (* (ari-unit (car x)) (ari (cddr x))))
+        ((eq (cadr x) '//)
+         (fix (/ (ari-unit (car x)) (ari (cddr x)))))
+        ((eq (cadr x) '\\)
+         (mod (ari-unit (car x))
+              (ari (cddr x))))
+        (t (%warn "bad syntax in arithmetic expression" x)
+           0)))
+
+(defun ari-unit (a)
+  (prog (r)
+        (cond ((consp a)(setq r (ari a)))
+              (t (setq r ($varbind a))))
+        (cond ((not (numberp r))
+               (%warn "bad value in arithmetic expression" a)
+               (return 0))
+              (t (return r)))))
+
+(defun genatom nil ($value (gensym)))
+
+(defmacro litval (&rest z) `(litval* ',z))
+
+(defun litval* (z)
+  (prog (r)
+        (unless (eq (length z) 1)
+                (%warn "litval: wrong number of arguments" z)
+                ($value 0)
+                (return nil))
+        (when (numberp (car z)) ($value (car z)) (return nil))
+        (setq r ($litbind ($varbind (car z))))
+        (when (numberp r)($value r)(return nil))
+        (%warn "litval: has no literal binding" (car z))
+        ($value 0)))
+
+(defmacro rjust (&rest z) `(rjust* ',z))
+
+(defun rjust* (z)
+  (prog (val)
+        (unless (eq (length z) 1)
+                (%warn "rjust: wrong number of arguments" z)
+                (return nil))
+        (setq val ($varbind (car z)))
+        (cond ((or (not (numberp val))
+                   (< val 1)
+                   (> val 127))
+               (%warn "rjust: illegal value of field width" val)
+               (return nil)))
+        ($value '|=== r j u s t ===|)
+        ($value val)))
+
+(defmacro crlf (&rest z) `(crlf* ',z))
+
+(defun crlf* (z)
+  (if z (%warn "crlf: does not take arguments" z)
+        ($value '|=== c r l f ===|)))
+
+(defmacro tabto (&rest z) `(tabto* ',z))
+
+(defun tabto* (z)
+  (prog (val)
+        (unless (eq (length z) 1)
+                (%warn "tabto: wrong number of arguments" z)
+                (return nil))
+        (setq val ($varbind (car z)))
+        (cond ((or (not (numberp val))
+                   (< val 1)
+                   (> val 127))
+               (%warn "tabto: illegal column number" val)
+               (return nil)))
+        ($value '|=== t a b t o ===|)
+        ($value val)))
+
+;;; printing wm
+
+(defmacro ppwm (&rest z) `(ppwm* ',z))
+
+(defun ppwm* (avlist)
+  (prog (next a)
+        (setq *filters* nil)
+        (setq next 1)
+  l     (when (atom avlist) (go print))
+        (setq a (car avlist))
+        (setq avlist (cdr avlist))
+        (cond ((eq a '^)
+               (setq next (car avlist))
+               (setq avlist (cdr avlist))
+               (setq next ($litbind next))
+               (and (floatp next) (setq next (fix next)))
+               (cond ((or (not (numberp next))
+                      (> next *size-result-array*)
+                          (> 1 next))
+                      (%warn "illegal index after '^'" next)
+                      (return nil))))
+               ((variablep a)
+                (%warn "ppwm dose not take variables" a)
+                (return nil))
+               (t (setq *filters* (cons next (cons a *filters*)))
+                  (incf next)))
+        (go l)
+ print  (mapwm #'ppwm2)
+        (terpr)
+        (return nil)))
+
+(defun ppwm2 (elm-tag)
+  (when (filter (car elm-tag))
+        (terpr)
+        (ppelm (car elm-tag) t)))
+
+(defun filter (elm)
+  (prog (fl indx val)
+        (setq fl *filters*)
+   top  (when (atom fl) (return t))
+        (setq indx (car fl))
+        (setq val (cadr fl))
+        (setq fl (cddr fl))
+        (when (ident (nth (1- indx) elm) val) (go top))
+        (return nil)))
+
+(defun ident (x y)
+  (cond ((eq x y) t)
+        ((not (numberp x)) nil)
+        ((not (numberp y)) nil)
+        ((= x y) t)
+        (t nil)))
+
+; the new ppelm is designed especially to handle literalize format
+; however, it will not do as well as the old ppelm on other formats
+
+(defun ppelm (elm port)
+  (prog (ppdat sep val att mode lastpos)
+        (princ (creation-time elm) port)
+        (princ ": " port)
+        (setq mode 'vector)
+        (setq ppdat (get (car elm) 'ppdat))
+        (and ppdat (setq mode 'a-v))
+        (setq sep '\()
+        (setq lastpos 0)
+        (do ((curpos 1 (1+ curpos))
+             (vlist elm (cdr vlist)))
+            ((atom vlist) nil)
+            (setq val (car vlist))
+            (setq att (assoc curpos ppdat))
+            (cond (att (setq att (cdr att)))
+                  (t (setq att curpos)))
+            (and (symbolp att)
+                 (is-vector-attribute att)(setq mode 'vector))
+            (cond ((or (not (null val)) (eq mode 'vector))
+                   (princ sep port)
+                   (ppval val att lastpos port)
+                   (setq sep '|    |)
+                   (setq lastpos curpos))))
+            (princ '\) port))))
+
+(defun ppval (val att lastpos port)
+ (cond ((not (equal att (1+ lastpos)))
+        (princ '^ port)
+        (princ att port)
+        (princ " " port)))
+ (princ val port))
+
+;;; printing production memeory
+
+(defmacro pm (&rest l) `(pm* ',l))
+
+(defun pm* (z) (mapc #'pprule z) (terpr))
+
+(defun pprule (name)
+  (prog (matrix next lab)
+        (unless (symbolp name) (return nil))
+        (setq matrix (get name 'production))
+        (when (null matrix) (return nil))
+        (terpr)
+        (princ "(p ")
+        (princ name)
+   top  (when (atom matrix) (go fin))
+        (setq next (car matrix))
+        (setq matrix (cdr matrix))
+        (setq lab nil)
+        (terpr)
+        (cond ((eq next '-)
+               (princ "  - ")
+               (setq next (car matrix))
+               (setq matrix (cdr matrix)))
+              ((eq next '-->)
+               (princ "  "))
+              ((and (eq next '{)(atom (car matrix)))
+               (princ "   {")
+               (setq lab (car matrix))
+               (setq next (cadr matrix))
+               (setq matrix (cdddr matrix)))
+              ((eq next '{)
+               (princ "   {")
+               (setq lab (cadr matrix))
+               (setq next (car matrix))
+               (setq matrix (cdddr matrix)))
+              (t (princ "    ")))
+        (ppline next)
+        (when lab (princ " ")(princ lab)(princ '}))
+        (go top)
+  fin (princ '\))))
+
+(defun ppline (line)
+  (prog nil
+        (cond ((atom line)(princ line))
+              (t (princ "(")
+                 (setq *ppline* line)
+                 (ppline2)
+                 (princ ")")))
+        (return nil)))
+
+(defun ppline2 nil
+   (prog (needspace)
+         (setq needspace nil)
+     top (when (atom *ppline*)(return nil))
+         (when needspace (princ " "))
+         (if (eq (car *ppline*) '^) (ppattval)
+             (pponlyval))
+         (setq needspace t)
+         (go top)))
+
+(defun ppattval nil
+  (prog (att val)
+        (setq att (cadr *ppline*))
+        (setq *ppline* (cddr *ppline*))
+        (setq val (getval))
+        (when (> (+ (nwritn) (flatc att) (flatc val)) 76)
+              (terpr)
+              (princ "        "))
+        (princ '^)
+        (princ att)
+        (mapc #'(lambda (z) (princ " ") (princ z)) val)))
+
+(defun pponlyval nil
+  (prog (val needspace)
+        (setq val (getval))
+        (setq needspace nil)
+        (when (> (+ (nwritn) (flatc val)) 76)
+              (setq needspace nil)
+              (terpr)
+              (princ "        "))
+    top (when (atom val) (return nil))
+        (when needspace (princ " "))
+        (setq needspace t)
+        (princ (car val))
+        (setq val (cdr val))
+        (go top)))
+
+(defun getval nil
+  (prog (res vl)
+        (setq vl (car *ppline*))
+        (setq *ppline* (cdr *ppline*))
+        (cond ((member vl '(= <> < <= => > <=>))
+               (setq res (cons vl (getval))))
+              ((eq vl '{)
+               (setq res (cons vl (getupto '}))))
+              ((eq vl '<<)
+               (setq res (cons vl (getupto '>>))))
+              ((eq vl '//)
+               (setq res (list vl (car *ppline*)))
+               (setq *ppline* (cdr *ppline*)))
+              (t (setq res (list vl))))
+        (return res)))
+
+(defun getupto (end)
+  (prog (v)
+        (when (atom *ppline*) (return nil))
+        (setq v (car *ppline*))
+        (setq *ppline* (cdr *ppline*))
+        (if (eq v end) (return (list v))
+                       (return (cons v (getupto end))))))
+
+;;; backing up
+
+; the following routine initializes the record. putting nil in the
+; first slot indicate that that the record does not go back further
+; than taht. (when the system backs up, it writes nil over the used
+; records so that it will recognize which records it has used. thus
+; the system is set up anyway never to back over a nil.
+
+(defun record-index-plus (k)
+  (incf *record-index* k)
+  (cond ((< *record-index* 0)
+         (setq *record-index* *max-record-index*))
+        ((> *record-index* *max-record-index*)
+         (setq *record-index* 0))))
+
+
+(defun initialize-record nil
+  (setq *record-index* 0)
+  (setq *recording* nil)
+  (setq *max-record-index* 31)
+  (vset *record-array* 0 nil))
+
+; *max-record-index* holds the maximum legal index for record-array
+; so it and the fllowing must be changed at the same time
+
+(defun begin-record (p data)
+  (setq *recording* t)
+  (setq *record* (list '=>refract p data)))
+
+(defun end-record nil
+  (when  *recording*
+         (setq *record*
+               (cons *cycle-count* (cons *p-name* *record*)))
+         (record-index-plus 1)
+         (vset *record-array* *record-index* *record*)
+         (setq *record* nil)
+         (setq *recording* nil))))
+
+(defun record-change (direct time elm)
+  (when *recording*
+        (setq *record*
+              (cons direct (cons time (cons elm *record*))))))
+
+; to maintain refraction information, need keep only one piece of
+; information:
+; need to record all unsuccessful attempts to delete things from the
+; conflict set. unsuccessful delets are caused by attempting to delete
+; refracted instantiations. when backing up, have to avoid putting
+; things back into the conflict set if they were not deleted when
+; running forward.
+
+(defun record-refract (rule data)
+  (when *recording*
+        (setq *record* (cons '<=refract
+                             (cons rule
+                                   (cons data *record*))))))
+
+(defun refracted (rule data)
+  (prog (z)
+        (when (null *refracts*) (return nil))
+        (setq z (cons rule data))
+        (return (member z *refracts* :test #'equal))))
+
+(defun back (k)
+  (prog (r)
+   l    (when (< k 1)(return nil))
+        (setq r (svref *record-array* *record-index*))
+        (when (null r) (return 'nothing-more-stored))
+        (vset *record-array* *record-index* nil)
+        (record-index-plus -1)
+        (undo-record r)
+        (decf k 1)
+        (go l)))
+
+(defun undo-record (r)
+  (prog (save act a b rate)
+;*recording* must be off during back up
+        (setq save *recording*)
+        (setq *refracts* nil)
+        (setq *recording* nil)
+        (when *ptrace*
+              (back-print (list "undo:" (car r) (cadr r))))
+        (setq r (cddr r))
+   top  (when (atom r)(go fin))
+        (setq act (car r) a (cadr r) b (caddr r))
+        (setq r (cdddr r))
+        (when *wtrace* (back-print (list "undo:" act a)))
+        (cond ((eq act '<=wm)(add-to-wm b a))
+              ((eq act '=>wm)(remove-from-wm b))
+              ((eq act '<=refract)
+               (setq *refracts* (cons (cons a b) *refracts*)))
+              ((and (eq act '=>refract) (still-present b))
+               (setq *refracts*
+                     (delete (cons a b) *refracts* :test #'equal))
+               (setq rate (rating-part (get a 'topnode)))
+               (removecs a b)
+               (insertcs a b rate))
+              (t (%warn "back: cannot undo action" (list act a))))
+        (go top)
+   fin  (setq *recording* save)
+        (setq *refracts* nil)
+        (return nil)))
+
+; still-present makes sure that the user has not deleted something
+; from wm which occurs in the instantiation about to be restored;
+; it makes the check by determining whether each wme still has
+; time tag.
+
+(defun still-present (data)
+ (prog nil
+  l (cond ((atom data)(return t))
+          ((creation-time (car data))
+           (setq data (cdr data))
+           (go l))
+          (t (return nil)))))
+
+(defun back-print (x)
+  (prog (port)
+        (setq port (trace-file))
+        (terpr port)
+        (ops5-print x port)))
+
+;;; functions to show how close rules are firing
+
+(defmacro matches (&rest z) `(matches* ',z))
+
+(defun matches* (rule-list)
+  (mapc #'matches2 rule-list) (terpr))
+
+(defun matches2 (p)
+  (cond ((atom p)
+         (terpr)
+         (terpr)
+         (princ p)
+         (matches3 (get p 'backpointers) 2 (cons 1 nil)))))
+
+(defun matches3 (nodes ce part)
+  (cond ((not (null nodes))
+         (terpr)
+         (princ " ** matches for ")
+         (princ part)
+         (princ " ** ")
+         (mapc #'write-elms
+               (find-left-mem (car nodes)))
+         (terpr)
+         (princ " ** matches for ")
+         (princ (cons ce nil))
+         (princ " ** ")
+         (mapc #'write-elms
+               (find-right-mem (car nodes)))
+         (matches3 (cdr nodes) (1+ ce) (cons ce part)))))
+
+(defun write-elms (wme-or-count)
+  (when (consp wme-or-count)
+        (terpr)
+        (mapc #'write-elms2
+              wme-or-count)))
+
+(defun write-elms2 (x)
+  (princ "  ")
+  (princ (creation-time x)))
+
+(defun find-left-mem (node)
+  (if (eq (car node) '&and) (memory-part (caddr node))
+                            (car (caddr node))))
+
+(defun find-right-mem (node)
+  (memory-part (cadddr node)))
+
+;;; check the rhss of production
+
+(defun check-rhs (rhs) (mapc #'check-action rhs))
+
+(defun check-action (x)
+  (prog (a)
+    (when (atom x)
+          (%warn "atomic action" x)
+          (return nil))
+    (setq a (setq *action-type* (car x)))
+    (case   a
+           (bind (check-bind x))
+           (cbind (check-cbind x))
+           (make  (check-make x))
+           (modify (check-modify x))
+           (remove (check-remove x))
+           (write  (check-write x))
+           (call   (check-call x))
+           (halt   (check-halt x))
+           (openfile (check-openfile x))
+           (closefile (check-closefile x))
+           (default   (check-default x))
+           (build     (check-build x))
+           (t (%warn "undefined rhs action" a))))))
+
+(defun check-build (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (check-build-collect (cdr z)))
+
+(defun check-build-collect (args)
+  (prog (r)
+    top (and (null args)(return nil))
+        (setq r (car args))
+        (setq args (cdr args))
+        (cond ((consp r)(check-build-collect r))
+              ((eq r '\\)
+               (and (null args)(%warn "nothing to evaluate" r))
+               (check-rhs-value (car args))
+               (setq args (cdr args))))
+        (go top)))
+
+(defun check-remove (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (mapc #'check-rhs-ce-var (cdr z)))
+
+(defun check-make (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (check-change& (cdr z)))
+
+(defun check-openfile (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (check-change& (cdr z)))
+
+(defun check-closefile (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (check-change& (cdr z)))
+
+(defun check-default (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (check-change& (cdr z)))
+
+(defun check-modify (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (check-rhs-ce-var (cadr z))
+  (when (null (cddr z))(%warn "no changes to make" z))
+  (check-change& (cddr z)))
+
+(defun check-write (z)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (check-change& (cdr z)))
+
+(defun check-call (z)
+  (prog (f)
+  (when (null (cdr z))(%warn "needs arguments" z))
+  (setq f (cadr z))
+  (when (variablep f)
+       (%warn "function name must be a constant" z))
+  (unless (symbolp f)
+          (%warn "function name must be a symbolic atom" f))
+  (unless (externalp f)
+          (%warn "function name not declared external" f))
+  (check-change& (cddr z))))
+
+(defun check-halt (z)
+  (unless (null (cdr z)) (%warn "dose not take arguments" z)))
+
+(defun check-cbind (z)
+  (prog (v)
+     (or (= (length z) 2)(%warn "takes only one argument" z))
+     (setq v (cadr z))
+     (or (variablep v)(%warn "takes variable as argument" z))
+     (note-ce-variable v)))
+
+(defun check-bind (z)
+  (prog (v)
+     (unless (> (length z) 1)(%warn "takes only one argument" z))
+     (setq v (cadr z))
+     (unless (variablep v)(%warn "takes variable as argument" z))
+     (note-variable v)
+     (check-change& (cddr z))))
+
+(defun check-change& (z)
+  (prog (r tab-flag)
+        (setq tab-flag nil)
+    la  (when (atom z) (return nil))
+        (setq r (car z))
+        (setq z (cdr z))
+        (cond ((eq r '^)
+               (and tab-flag
+                    (%warn "no value before this tab" (car z)))
+               (setq tab-flag t)
+               (check-tab-index (car z))
+               (setq z (cdr z)))
+              ((eq r '//)(setq tab-flag nil)(setq z (cdr z)))
+              (t (setq tab-flag nil)
+                 (check-rhs-value r)))
+        (go la)))
+
+(defun check-rhs-ce-var (v)
+  (cond ((and (not (numberp v))(not (ce-bound? v)))
+         (%warn "unbound element variable" v))
+        ((and (numberp v)
+              (or (< v 1)(> v *ce-count*)))
+         (%warn "numeric element designater out of bound" v))))
+
+(defun check-rhs-value (x)
+ (if (consp x)(check-rhs-function x)
+              (check-rhs-atomic x)))
+
+(defun check-rhs-atomic (x)
+    (and (variablep x)
+         (not (bound? x))
+         (%warn "unbound variable" x)))
+
+(defun check-rhs-function (x)
+ (prog (a)
+       (setq a (car x))
+       (case a
+         (compute (check-compute x))
+         (arith   (check-compute x))
+         (substr  (check-substr x))
+         (accept  (check-accept x))
+         (acceptline (check-acceptline x))
+         (crlf       (check-crlf x))
+         (genatom    (check-genatom x))
+         (litval     (check-litval x))
+         (tabto      (check-tabto x))
+         (rjust      (check-rjust x))
+         (t (or (externalp a)
+                (%warn "rhs function not declared external" a))))))
+
+(defun check-litval (x)
+  (unless (= (length x) 2)(%warn "wrong number of arguments" x))
+  (check-rhs-atomic (cadr x)))
+
+(defun check-accept (x)
+  (cond ((= (length x) 1) nil)
+        ((= (length x) 2)(check-rhs-atomic (cadr x)))
+        (t (%warn "too many arguments" x))))
+
+(defun check-acceptline (x)
+  (mapc #'check-rhs-atomic (cdr x)))
+
+(defun check-crlf (x)
+  (check-0-args x))
+
+(defun check-genatom (x)
+  (check-0-args x))
+
+(defun check-tabto (x)
+  (unless (= (length x) 2)(%warn "wrong number of arguments" x))
+  (check-print-control (cadr x)))
+
+(defun check-rjust (x)
+  (unless (= (length x) 2)(%warn "wrong number of arguments" x))
+  (check-print-control (cadr x)))
+
+(defun check-0-args (x)
+  (unless (= (length x) 1)(%warn "should not have arguments" x)))
+
+(defun check-substr (x)
+  (unless (= (length x) 4) (%warn "wrong number of arguments" x))
+  (check-rhs-ce-var (cadr x))
+  (check-substr-index (caddr x))
+  (check-last-substr-index (cadddr x)))
+
+(defun check-compute (x) (check-arithmetic (cdr x)))
+
+(defun check-arithmetic (l)
+  (cond ((atom l)
+         (%warn "syntax error in arithmetic expression" l))
+        ((atom (cdr l)) (check-term (car l)))
+        ((not (member (cadr l) '(+ - * // \\)))
+         (%warn "unknown operator" l))
+        (t (check-term (car l))(check-arithmetic (cddr l)))))
+
+(defun check-term (x)
+ (if (consp x)(check-arithmetic x)
+              (check-rhs-atomic x)))
+
+(defun check-last-substr-index (x)
+  (unless (eq x 'inf) (check-substr-index x)))
+
+(defun check-substr-index (x)
+  (prog (v)
+        (when (bound? x) (return x))
+        (setq v ($litbind x))
+        (cond ((not (numberp v))
+               (%warn "unbound symbol used as index in substr" x))
+              ((or (< v 1) (> v 127))
+               (%warn "index out of bound in tab" x)))))
+
+(defun check-print-control (x)
+  (prog nil
+    (when (bound? x)(return x))
+    (cond ((or (not (numberp x)) (< x 1) (> x 127))
+           (%warn "illegal value for printer control" x)))))
+
+(defun check-tab-index (x)
+  (prog (v)
+        (when (bound? x)(return x))
+        (setq v ($litbind x))
+        (cond ((not (numberp v))
+               (%warn "unbound symbol occurs after ^" x))
+              ((or (< v 1) (> v 127))
+               (%warn "index out of bound after ^" x)))))
+
+(defun note-variable (var)
+  (push var *rhs-bound-vars*))
+
+(defun bound? (var) (or (member var *rhs-bound-vars*)
+                        (var-dope var)))
+
+(defun note-ce-variable (ce-var)
+  (push ce-var *rhs-bound-ce-vars*))
+
+(defun ce-bound? (ce-var)
+  (or (member ce-var *rhs-bound-ce-vars*)
+      (ce-var-dope ce-var)))
+
+;;; toplevel routines
+
+(defun process-changes (adds dels)
+  (prog (x)
+   process-deletes
+        (when (atom dels) (go process-adds))
+        (setq x (car dels))
+        (setq dels (cdr dels))
+        (remove-from-wm x)
+        (go process-deletes)
+   process-adds
+        (when (atom adds) (return nil))
+        (setq x (car adds))
+        (setq adds (cdr adds))
+        (add-to-wm x nil)
+        (go process-adds)))
+
+(defun main nil
+  (prog (instance r)
+        (setq *halt-flag* nil)
+        (setq *break-flag* nil)
+        (setq instance nil)
+   dil  (setq *phase* 'conflict-resolution)
+        (cond (*halt-flag*
+               (setq r "end -- explicit halt")
+               (go finis))
+              ((zerop *remaining-cycles*)
+               (setq r "***break***")
+               (setq *break-flag* t)
+               (go finis))
+              (*break-flag* (setq r "***break***") (go finis)))
+        (decf *remaining-cycles* 1)
+        (setq instance (conflict-resolution))
+        (when (not instance)
+              (setq r "end -- no production true")
+              (go finis))
+        (setq *phase* (car instance))
+        (accum-stats)
+        (eval-rhs (car instance) (cdr instance))
+        (check-limits)
+        (and (broken (car instance)) (setq *break-flag* t))
+        (go dil)
+ finis  (setq *p-name* nil)
+        (return r)))
+
+(defun do-continue (wmi)
+  (when *critical*
+        (terpr)
+        (princ "warning: network may be inconsistent"))
+  (process-changes wmi nil)
+  (print-times (main)))
+
+(defun accum-stats nil
+  (incf *cycle-count* 1)
+  (setq *total-token* (+ *total-token* *current-token*))
+  (when (> *current-token* *max-token*)
+        (setq *max-token* *current-token*))
+  (setq *total-wm* (+ *total-wm* *current-wm*))
+  (when (> *current-wm* *max-wm*) (setq *max-wm* *current-wm*)))
+
+(defun print-times (mess)
+  (prog (cc ac)
+        (when *break-flag* (terpri) (return mess))
+        (setq cc (+ (float *cycle-count*) 1.0e-20))
+        (setq ac (+ (float *action-count*) 1.0e-20))
+        (terpr)
+        (princ mess)
+        (pm-size)
+        (printlinec (list *cycle-count*
+                          'firings
+                          (list *action-count* 'rhs 'actions)))
+        (terpr)
+        (printlinec (list (round (/ (float *total-wm*) cc))
+                          'mean 'working 'memory 'size
+                          (list *max-wm* 'maximum)))
+        (terpr)
+        (printlinec (list (round (/ (float *total-cs*) cc))
+                          'mean 'conflict 'set 'size
+                          (list *max-cs* 'maximum)))
+        (terpr)
+        (printlinec (list (round (/ (float *total-token*) cc))
+                          'mean 'token 'memory 'size
+                          (list *max-token* 'maximum)))
+        (terpr)))
+
+(defun pm-size nil
+  (terpr)
+  (printlinec (list *pcount*
+                    'productions
+                    (list *real-cnt* '/ *virtual-cnt* 'nodes)))
+  (terpri))
+
+(defun check-limits nil
+  (when (> (length *conflict-set*) *limit-cs*)
+        (terpr)
+        (terpr)
+        (printlinec (list "conflict set size exceeded the limit of"
+                          *limit-cs*
+                          'after
+                          *p-name*))
+        (setq *halt-flag* t))
+  (when (> *current-token* *limit-token*)
+        (terpr)
+        (terpr)
+        (printlinec (list "token memory size exceeded the limit of"
+                          *limit-token*
+                          'after
+                          *p-name*))
+        (setq *halt-flag* t))))
+
+(defun top-level-remove (z)
+  (if (equal z '(*))(process-changes nil (get-wm nil))
+                    (process-changes nil (get-wm z))))
+
+(defmacro excise (&rest l) `(excise* ',l))
+
+(defun excise* (z) (mapc #'excise-p z))
+
+(defun run (&optional (z 1000000))
+   (cond ((and (numberp z)(> z 0))
+          (setq *remaining-cycles* z)
+          (do-continue nil))
+         (t 'what?)))
+
+(defmacro strategy (&rest z) `(strategy* ',z))
+
+(defun strategy* (z)
+  (cond ((atom z) *strategy*)
+        ((equal z '(lex)) (setq *strategy* 'lex))
+        ((equal z '(mea)) (setq *strategy* 'mea))
+        (t 'what?)))
+
+(defmacro watch (&rest z) `(watch* ',z))
+
+(defun watch* (z)
+  (cond ((equal z '(0))(setq *wtrace* nil *ptrace* nil) 0)
+        ((equal z '(1))(setq *wtrace* nil *ptrace* t) 1)
+        ((equal z '(2))(setq *wtrace* t *ptrace* t) 2)
+        ((equal z '(3))
+         (setq *wtrace* t *ptrace* t *build-trace* #'print)
+         '(2 -- conflict set trace not supported))
+        ((and (atom z) (null *ptrace*)) 0)
+        ((and (atom z) (null *wtrace*)) 1)
+        ((atom z) 2)
+        (t 'what?)))
+
+(defmacro external (&rest z) `(external* ',z))
+
+(defun external* (z)
+ (catch '*error* (external2 z)))
+
+(defun external2 (z) (mapc #'external3 z))
+
+(defun external3 (x)
+  (cond ((symbolp x)(putprop x t 'external-routine))
+        (t (%error "not a legal function name" x))))
+
+(defun externalp (x)
+  (cond ((symbolp x)(get x 'external-routine))
+        (t (%warn "not a legal function name" x) nil)))
+
+(defmacro pbreak (&rest l) `(pbreak* ',l))
+
+(defun pbreak* (z)
+  (cond ((atom z) *brkpts*)
+        (t (mapc #'pbreak2 z) nil)))
+
+(defun pbreak2 (rule)
+ (cond ((not (symbolp rule))(%warn "illegal name" rule))
+       ((not (get rule 'topnode))
+        (%warn "not a production" rule))
+       ((member rule *brkpts*)
+        (setq *brkpts* (rematm rule *brkpts*)))
+       (t (push rule *brkpts*))))
+
+(defun rematm (atm list)
+  (cond ((atom list) list)
+        ((= atm (car list))(rematm atm (cdr list)))
+        (t (cons (car list)(rematm atm (cdr list))))))
+
+(defun broken (rule) (member rule *brkpts*))
+
+(defun nwritn nil
+  (cursor))
+
+(defun flatc (x) (length (format nil "~A" x)))

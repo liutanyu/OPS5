@@ -1,0 +1,1526 @@
+Path: titcca!ccut!tansei!a49915
+From: a49915@tansei.cc.u-tokyo.JUNET (Akiumi Hasegawa)
+Newsgroups: fj.sources
+Subject: ops5 for kcl 2/3 (In Japanese)
+Keywords: ops5
+Message-ID: <1017@tansei.cc.u-tokyo.JUNET>
+Date: 24 Oct 87 01:55:54 GMT
+Distribution: fj
+Organization: Computer Center, University of Tokyo, Japan.
+Lines: 1515
+
+
+;	VPS2 -- Interpreter for OPS5
+;
+;	Copyright (C) 1979, 1980, 1981
+;	Charles L. Forgy,  Pittsburgh, Pennsylvania
+
+
+
+; Users of this interpreter are requested to contact
+
+;
+;	Charles Forgy
+;	Computer Science Department
+;	Carnegie-Mellon University
+;	Pittsburgh, PA  15213
+; or
+;	Forgy@CMUA
+; 
+; so that they can be added to the mailing list for OPS5.  The mailing list
+; is needed when new versions of the interpreter or manual are released.
+
+;;;
+;;;   OPS5 interpreter for KCl
+;;;   original version is written in Franz Lisp 
+;;;   by Dr. C.L. Forgy at CMU.
+;;;  rewritten by A. Hasegawa for KCL/UTS
+;;;  Dept. of Earth Sciences
+;;;    Nagoya University
+;;;  written: December,20,1986(buggy)
+;;;  updated: Feb.,5,1987(fatal bugs are fixed)
+;;;
+
+;;;    remove and write is a command 
+;;;    so shadow them
+
+(shadow '(remove write))
+
+
+;;;    global variables
+;;;    *registers* added by A. Hasegawa
+
+(proclaim '(special
+            *matrix* *feature-count* *pcount* *vars* *cur-vars*
+            *curcond* *subnum* *last-node* *last-branch* *first-node*
+            *sendtocall* *flag-part* *alpha-flag-part* *data-part*
+            *alpha-data-part* *ce-vars* *virtual-cnt* *real-cnt*
+            *current-token* *c1* *c2* *c3* *c4* *c5* *c6* *c7* *c8* *c9*
+            *c10* *c11* *c12* *c13* *c14* *c15* *c16* *c17* *c18* *c19*
+            *c20* *c21* *c22* *c23* *c24* *c25* *c26* *c27* *c28* *c29*
+            *c30* *c31* *c32* *c33* *c34* *c35* *c36* *c37* *c38* *c39*
+            *c40* *c41* *c42* *c43* *c44* *c45* *c46* *c47* *c48* *c49*
+            *c50* *c51* *c52* *c53* *c54* *c55* *c56* *c57* *c58* *c59*
+            *c60* *c61* *c62* *c63* *c64* *record-array* *result-array*
+            *max-cs* *total-cs* *limit-cs* *cr-temp* *side*
+            *conflict-set* *halt-flag* *phase* *critical*
+            *cycle-count* *total-token* *max-token* *refracts*
+            *limit-token* *total-wm* *current-wm* *max-wm*
+            *action-count* *wmpart-list* *wm* *data-matched* *p-name*
+            *variable-memory* *ce-variable-memory* *max-index*
+            *next-index* *size-result-array* *rest* *build-trace*
+            *last* *ptrace* *wtrace* *in-rhs* *recording* *accept-file*
+            *trace-file* *write-file* *record-index* *max-record-index*
+            *old-wm* *record* *filters* *break-flag* *strategy*
+            *remaining-cycles* *wm-filter* *rhs-bound-vars* *ppline*
+            *ce-count* *brkpts* *class-list* *buckets* *action-type*
+            *rhs-bound-ce-vars* *cur-pos* *registers*))
+
+;;; macros
+
+(defmacro neq (x y) `(not (eq ,x ,y)))
+ 
+(defmacro putprop (atm val ind) `(setf (get ,atm ,ind) ,val))
+
+(defmacro vset (vector index &optional (value nil))
+   `(setf (svref ,vector ,index) ,value))
+
+(defun fix (x) (truncate  (+ x 0.5)))
+
+;;; for cursor control 
+;;; only terminal output
+
+(defun cursor nil *cur-pos*)
+
+(defun terpr (&optional (port t))
+   (when (eq port t) (setq *cur-pos* 1))
+   (terpri port))
+
+
+(defun cursor nil *cur-pos*)
+
+(defun ops5-princ (item &optional (port t))
+ (when (eq port t)
+   (incf *cur-pos* (length (format nil "~A" item))))
+   (princ item port))
+
+(defun ops5-prin1 (item &optional (port t))
+  (when (eq port t)
+   (incf *cur-pos* (length (format nil "~S" item))))
+   (prin1 item port))
+
+(defun ops5-print (item &optional (port t))
+   (when (eq port t) (setq *cur-pos* 1))
+   (print item port))
+
+(defun tab (n &optional (port t))
+  (when (< n (cursor)) (terpr port))
+  (let ((space (- n (cursor))))
+       (if (> space 0)(spaces space port))))
+
+(defun spaces (n &optional (port t))
+  (do ((i n (1- i)))
+      ((zerop i))
+      (ops5-princ " " port)))
+
+;;;    gelm to get elment
+;;;    ce-gelm to get condition element
+
+(defun ce-gelm (x k)(nth (1- k) x))
+
+(defun gelm (x k)
+  (prog (ce sub)
+        (multiple-value-setq (ce sub) (floor k 10000))
+        (setq x (nth ce x))
+        (return (nth sub x))))
+
+;;; utility functions
+
+(defun printline (x) (mapc #'printline* x))
+
+(defun printline* (y)(ops5-princ " ")(ops5-prin1 y))
+
+(defun printlinec (x)(mapc #'printlinec* x))
+
+(defun printlinec* (y)(ops5-princ " ")(ops5-princ y))
+
+;;; mimic for single-character-object
+
+(defun single-macro-character (str char)
+  (declare (ignore str))
+  (values (intern (string char))))
+
+(defun i-g-v nil
+       (set-macro-character #\{ #'single-macro-character)
+       (set-macro-character #\^ #'single-macro-character)
+       (set-macro-character #\}  #'single-macro-character)
+       (setq *buckets* 64)
+       (setq *accept-file* nil)
+       (setq *trace-file* nil)
+       (setq *write-file* nil)
+       (setq *class-list* nil)
+       (setq *brkpts* nil)
+       (setq *strategy* 'lex)
+       (setq *in-rhs* nil)
+       (setq *ptrace* t)
+       (setq *wtrace* nil)
+       (setq *recording* nil)
+       (setq *refracts* nil)
+       (setq *real-cnt* (setq *virtual-cnt* 0))
+       (setq *max-cs* (setq *total-cs* 0))
+       (setq *limit-token* 1000000)
+       (setq *limit-cs* 1000000)
+       (setq *critical* nil)
+       (setq *build-trace* nil)
+       (setq *wmpart-list* nil)
+       (setq *size-result-array* 127)
+       (setq *result-array* (make-array 128 :initial-element nil))
+       (setq *record-array* (make-array 32  :initial-element nil))
+       (setq *registers* (make-array 64 :initial-element nil))
+       (do ((i 0 (1+ i)))
+           ((> i 63))
+           (setf (svref *registers* i)
+                 (intern (string-upcase 
+                           (format nil "*c~a*" (1+ i))))))
+       (make-bottom-node)
+       (setq *pcount* 0)
+       (initialize-record)
+       (setq *cycle-count* (setq *action-count* 0))
+       (setq *total-token*
+             (setq *max-token* (setq *current-token* 0)))
+       (setq *total-cs* (setq *max-cs* 0))
+       (setq *cur-pos* 1)
+       (setq *total-wm* (setq *max-wm* (setq *current-wm* 0)))
+       (setq *conflict-set* nil)
+       (setq *wmpart-list* nil)
+       (setq *p-name* nil)
+       (setq *remaining-cycles* 1000000))
+
+;;; ops5-init initializes the ops5 interpreter
+
+(defun ops5-init nil (i-g-v) nil)
+
+(defun %warn (what where)
+  (prog nil
+    (terpri)
+    (princ "?")
+    (when *p-name* (princ *p-name*))
+    (princ "..")
+    (princ where)
+    (princ "..")
+    (princ what)
+    (terpri)
+    (return where)))
+
+(defun %error (what where)
+  (%warn what where)
+  (throw '*error* nil))
+
+(defun top-levels-eq (la lb)
+  (prog nil
+   lx (cond ((eq la lb)(return t))
+            ((null la) (return nil))
+            ((null lb)(return nil))
+            ((neq (car la)(car lb))(return nil)))
+      (setq la (cdr la) lb (cdr lb))
+      (go lx)))
+
+;;; literal and literalize
+
+(defmacro literal (&rest z) `(literal* ',z))
+
+(defun literal* (z)
+   (prog (atm val old)
+    top (and (atom z)(return 'bound))
+        (or (eq (cadr z) '=)(return (%warn "wrong format" z)))
+        (setq atm (car z))
+        (setq val (caddr z))
+        (setq z (cdddr z))
+        (cond ((not (numberp val))(%warn "can bind only to numbers" val))
+              ((or (not (symbolp atm))(variablep atm))
+               (%warn "can bind only constant atoms" atm))
+              ((and (setq old (literal-binding-of atm))
+                    (not (equal old val)))
+               (%warn "attempt to rebind attribute" atm))
+              (t (putprop atm val 'ops-bind)))
+       (go top)))
+
+(defmacro literalize (&rest z) `(literalize* ',z))
+
+(defun literalize* (l)
+  (prog (class-name atts)
+        (setq class-name (car l))
+        (cond ((have-compiled-production)
+               (%warn "literalize called after p" class-name)
+               (return nil))
+              ((get class-name 'att-list)
+               (%warn "attempt to redefine class" class-name)
+               (return nil)))
+        (push class-name *class-list*)
+        (setq atts (remove-duplicates (cdr l)))
+        (test-attribute-names atts)
+        (mark-conflicts atts atts)
+        (putprop class-name atts 'att-list)))
+
+(defmacro vector-attribute (&rest l)
+  `(vector-attribute* ',l))
+
+(defun vector-attribute* (x)
+  (cond ((have-compiled-production)
+         (%warn "vector-attribute called after p" x))
+        (t (test-attribute-names x)
+           (mapc #'vector-attribute2 x))))
+
+(defun vector-attribute2 (att) (putprop att t 'vector-attribute))
+
+(defun is-vector-attribute (att) (get att 'vector-attribute))
+
+(defun test-attribute-names (l)
+  (mapc #'test-attribute-names2 l))
+
+(defun test-attribute-names2 (atm)
+  (cond ((or (not (symbolp atm))(variablep atm))
+         (%warn "can bind only constant atoms" atm))))
+
+(defun finish-literalize nil
+  (cond (*class-list*
+         (mapc #'note-user-assigns  *class-list*)
+         (mapc #'assign-scalars     *class-list*)
+         (mapc #'assign-vectors     *class-list*)
+         (mapc #'put-ppdat          *class-list*)
+         (mapc #'erase-literal-info *class-list*)
+         (setq *class-list* nil)
+         (setq *buckets* nil))))
+
+(defun have-compiled-production nil (not (zerop *pcount*)))
+
+(defun put-ppdat (class)
+   (prog (al att ppdat)
+         (setq ppdat nil)
+         (setq al (get class 'att-list))
+    top  (when (not (atom al))
+                (setq att (car al))
+                (setq al (cdr al))
+                (setq ppdat
+                      (cons (cons (literal-binding-of att) att)
+                            ppdat))
+                (go top))
+         (putprop class ppdat 'ppdat)))
+
+;; note-user-assigns and note-user-vector-assigns are needed only when
+;; literal and literalize are both used in a program. they make sure that
+;; the assignments that are made explicitly with literal do not cause problems
+;; for the literalizes class.
+
+(defun note-user-assigns (class)
+ (mapc #'note-user-assigns2 (get class 'att-list)))
+
+(defun note-user-assigns2 (att)
+  (prog (num conf buck clash)
+        (setq num (literal-binding-of att))
+        (when (null num)(return nil))
+        (setq conf (get att 'conflicts))
+        (setq buck (store-binding att num))
+        (setq clash (find-common-atom buck conf))
+        (when clash
+             (%warn "attribute in a class assigend the same number"
+                    (cons att clash)))))
+
+(defun note-user-vector-assigns (att given needed)
+   (when (> needed given)
+         (%warn "vector attribute assigned too small a value in literal"
+                att)))
+
+(defun assign-scalars (class)
+ (mapc #'assign-scalars2
+       (get class 'att-list)))
+
+(defun assign-scalars2 (att)
+  (prog (tlist num bucket conf)
+        (when (literal-binding-of att)(return nil))
+        (when (is-vector-attribute att)(return nil))
+        (setq tlist (buckets))
+        (setq conf (get att 'conflicts))
+  top   (when (atom tlist)
+              (%warn "could not generate a binding" att)
+              (store-binding att -1)
+              (return nil))
+        (setq num (caar tlist))
+        (setq bucket (cdar tlist))
+        (setq tlist (cdr tlist))
+        (if (disjoint bucket conf)
+            (store-binding att num)
+            (go top))))
+
+(defun assign-vectors (class)
+  (mapc #'assign-vectors2 (get class 'att-list)))
+
+(defun assign-vectors2 (att)
+  (prog (big conf new old need)
+        (when (not (is-vector-attribute att))(return nil))
+        (setq big 1)
+        (setq conf (get att 'conflicts))
+   top  (when (not (atom conf))
+               (setq new (car conf))
+               (setq conf (cdr conf))
+               (cond ((is-vector-attribute new)
+                      (%warn "class has two vector attributs"
+                             (list att new)))
+                     (t (setq big (max (literal-binding-of new) big))))
+               (go top))
+        (setq need (1+ big))
+        (setq old (literal-binding-of att))
+        (if old (note-user-vector-assigns att old new)
+                (store-binding att need))
+        (return nil)))
+
+(defun disjoint (la lb) (not (find-common-atom la lb)))
+
+(defun find-common-atom (la lb)
+   (prog nil
+     top (cond ((null la)(return nil))
+               ((member (car la) lb)(return (car la)))
+               (t (setq la (cdr la))(go top)))))
+
+(defun mark-conflicts (rem all)
+   (when (not (null rem))
+         (mark-conflicts2 (car rem) all)
+         (mark-conflicts (cdr rem) all)))
+
+(defun mark-conflicts2 (atm lst)
+   (do ((l lst (cdr l)))
+       ((atom l))
+       (conflict atm (car l))))
+
+(defun conflict (a b)
+   (prog (old)
+      (setq old (get a 'conflicts))
+      (and (not (eq a b))
+           (not (member b old))
+           (putprop a (cons b old) 'conflicts))))
+
+(defun literal-binding-of (name) (get name 'ops-bind))
+
+(defun store-binding (name lit)
+   (putprop name lit 'ops-bind)
+   (add-bucket name lit))
+
+(defun add-bucket (name num)
+   (prog (buc)
+         (setq buc (assoc num (buckets)))
+         (when (not (member name buc))
+               (rplacd buc (cons name (cdr buc))))
+         (return buc)))
+
+(defun buckets nil
+  (when (atom *buckets*) (setq *buckets* (make-nums *buckets*)))
+  *buckets*)
+
+(defun make-nums (k)
+   (prog (nums)
+         (setq nums nil)
+    l    (and (< k 2)(return nums))
+         (setq nums (cons (cons k nil) nums))
+         (setq k (1- k))
+         (go l)))
+
+(defun erase-literal-info (class)
+  (mapc #'erase-literal-info2 (get class 'att-list))
+  (remprop class 'att-list))
+
+(defun erase-literal-info2 (att) (remprop att 'conflicts))
+
+;;; lhs compiler
+
+(defmacro p (&rest z) `(p* ',z))
+
+(defun p* (l)
+  (finish-literalize)
+  (princ '*)
+  (compile-production (car l)(cdr l)))
+
+(defun compile-production (name matrix)
+        (setq *p-name* name)
+        (catch '*error* (cmp-p name matrix))
+        (setq *p-name* nil))
+
+(defun peek-lex nil (car *matrix*))
+
+(defun lex nil
+ (prog1 (car *matrix*)(setq *matrix* (cdr *matrix*))))
+
+(defun end-of-p nil (atom *matrix*))
+
+(defun rest-of-p nil *matrix*)
+
+(defun prepare-lex (prod) (setq *matrix* prod))
+
+(defun peek-sublex nil (car *curcond*))
+
+(defun sublex nil
+ (prog1 (car *curcond*)(setq *curcond* (cdr *curcond*))))
+
+(defun end-of-ce nil (atom *curcond*))
+
+(defun rest-of-ce nil *curcond*)
+
+(defun prepare-sublex (ce)(setq *curcond* ce))
+
+(defun make-bottom-node nil (setq *first-node* (list '&bus nil)))
+
+(defun cmp-p (name matrix)
+  (prog (m bakptrs)
+        (when (or (null name) (consp name))
+              (%warn "illegal production name" name))
+        (when (equal (get name 'production) matrix)
+              (return nil))
+        (prepare-lex matrix)
+        (excise-p name)
+        (incf *pcount* 1)
+        (setq *feature-count*     0
+              *ce-count*          0
+              *vars*              nil
+              *ce-vars*           nil
+              *rhs-bound-vars*    nil
+              *rhs-bound-ce-vars* nil
+              *last-branch*       nil)
+        (setq bakptrs nil
+              m       (rest-of-p))
+  l1    (and (end-of-p)(%error "no '-->' in production" m))
+        (cmp-prin)
+        (setq bakptrs (cons *last-branch* bakptrs))
+        (unless (eq '--> (peek-lex)) (go l1))
+        (lex)
+        (check-rhs (rest-of-p))
+        (link-new-node (list '&p
+                             *feature-count*
+                             name
+                             (encode-dope)
+                             (encode-ce-dope)
+                             (cons 'progn (rest-of-p))))
+        (putprop name (cdr (nreverse bakptrs)) 'backpointers)
+        (putprop name matrix 'production)
+        (putprop name *last-node* 'topnode)))
+
+(defun rating-part (pnode)(cadr pnode))
+
+(defun var-part (pnode)(car (cdddr pnode)))
+
+(defun ce-var-part (pnode)(cadr (cdddr pnode)))
+
+(defun rhs-part (pnode) (caddr (cdddr pnode)))
+
+(defun excise-p (name)
+  (when (and (symbolp name)(get name 'topnode))
+         (printline (list name 'is 'excised))
+         (terpr)
+         (decf *pcount* 1)
+         (remove-from-conflict-set name)
+         (kill-node (get name 'topnode))
+         (remprop name 'production)
+         (remprop name 'backpointers)
+         (remprop name 'topnode)))
+
+(defun kill-node (node)
+ (prog nil
+  top  (and (atom node)(return nil))
+       (rplaca node '&old)
+       (setq node (cdr node))
+       (go top)))
+
+(defun cmp-prin nil
+  (prog nil
+    (setq *last-node* *first-node*)
+    (cond ((null *last-branch*)(cmp-posce)(cmp-nobeta))
+          ((eq (peek-lex) '-)(cmp-negce)(cmp-not))
+          (t (cmp-posce)(cmp-and)))))
+
+(defun cmp-negce nil (lex)(cmp-ce))
+
+(defun cmp-posce nil
+  (incf *ce-count* 1)
+  (if (eq (peek-lex) '{)
+       (cmp-ce+cevar)
+       (cmp-ce)))
+
+(defun cmp-ce+cevar nil
+  (prog (z)
+         (lex)
+         (cond ((atom (peek-lex))(cmp-cevar)(cmp-ce))
+               (t (cmp-ce)(cmp-cevar)))
+         (setq z (lex))
+         (unless (eq z '})(%error "missing '}'" z))))
+
+(defun new-subnum (k)
+  (unless (numberp k)(%error "tab must be a number" k))
+  (setq *subnum* k))
+
+(defun incr-subnum nil (incf *subnum* 1))
+
+(defun cmp-ce nil
+ (prog (z)
+  (new-subnum 0)
+  (setq *cur-vars* nil)
+  (setq z (lex))
+  (when (atom z)
+        (%error "atomic conditions are not allowed" z))
+  (prepare-sublex z)
+la
+  (when (end-of-ce)(return nil))
+  (incr-subnum)
+  (cmp-element)
+  (go la)))
+
+(defun cmp-element nil
+ (when (eq (peek-sublex) '^)(cmp-tab))
+ (if (eq (peek-sublex) '{)
+     (cmp-product)
+     (cmp-atomic-or-any)))
+
+(defun cmp-atomic-or-any nil
+  (if (eq (peek-sublex) '<<)
+      (cmp-any)
+      (cmp-atomic)))
+
+(defun cmp-any nil
+  (prog (a z)
+        (sublex)
+        (setq z nil)
+   la   (when (end-of-ce)(%error "missing '>>'" a))
+        (setq a (sublex))
+        (when (not (eq '>> a))
+              (push a z)
+              (go la))
+        (link-new-node (list '&any nil (current-field) z))))
+
+(defun cmp-tab nil
+   (prog (r)
+         (sublex)
+         (setq r (sublex))
+         (setq r ($litbind r))
+         (new-subnum r)))
+
+(defun $litbind (x)
+  (prog (r)
+        (cond ((and (symbolp x)(setq r (literal-binding-of x)))
+               (return r))
+              (t (return x)))))
+
+(defun get-bind (x)
+ (prog (r)
+   (cond ((and (symbolp x)(setq r (literal-binding-of x)))
+          (return r))
+         (t (return nil)))))
+
+(defun cmp-atomic nil
+  (prog (test x)
+        (setq x (peek-sublex))
+        (case x
+              (=   (setq test 'eq)(sublex))
+              (<>  (setq test 'ne)(sublex))
+              (<   (setq test 'lt)(sublex))
+              (<=  (setq test 'le)(sublex))
+              (>   (setq test 'gt)(sublex))
+              (>=  (setq test 'ge)(sublex))
+              (<=> (setq test 'xx)(sublex))
+              (t (setq test 'eq)))
+        (cmp-symbol test)))
+
+(defun cmp-product nil
+  (prog (save)
+        (setq save (rest-of-ce))
+        (sublex)
+   la   (cond ((end-of-ce)
+               (cond ((member '} save)
+                      (%error "wrong contex for '}'" save))
+                     (t (%error "missing '}'" save))))
+              ((eq (peek-sublex) '})(sublex)(return nil)))
+        (cmp-atomic-or-any)
+        (go la)))
+
+(defun variablep (x)(and (symbolp x)
+                         (char= (char (symbol-name x) 0) #\<)))
+
+(defun cmp-symbol (test)
+   (prog (flag)
+         (setq flag t)
+         (when (eq (peek-sublex) '//)(sublex)(setq flag nil))
+         (cond ((and flag (variablep (peek-sublex)))
+                (cmp-var test))
+               ((numberp (peek-sublex))(cmp-number test))
+               ((symbolp (peek-sublex))(cmp-constant test))
+               (t (%error "unrecognize symbol" (sublex))))))
+
+(defun cmp-constant (test)
+   (unless (member test '(eq ne xx))
+           (%error "non-numeric constant after numeric predicate" (sublex)))
+   (link-new-node (list (intern (string-upcase (format nil "t~aa" test)))
+                        nil
+                        (current-field)
+                        (sublex))))
+
+(defun cmp-number (test)
+  (link-new-node (list (intern (string-upcase (format nil "t~an" test)))
+                       nil
+                       (current-field)
+                       (sublex)))))
+
+(defun current-field nil (field-name *subnum*))
+
+(defun field-name (num)
+  (if (> num 64)
+      (%error "condition is too long" (rest-of-ce))
+      (svref *registers* (1- num))))
+
+;;; compiling variables
+;
+;
+;
+; *cur-vars* are the variables in the condition element currently
+; being compiled. *vars* are the variables in the earlier condition
+; elements. *ce-vars* are the condition element variables. note
+; that the interpreter will not confuse condition element and regular
+; variables even if they have the same name.
+;
+; *cur-vars is a list of triples: (name predicate subelement-number)
+; eg.     ((<x> 3 3)
+;          (<y> 1 1)
+;          ...)
+;
+; *vars* is a list of triples (name ce-number subelement-number)
+; eg.     ((<x> 3 3)
+;          (<y> 1 1)
+;          ....)
+;
+; *ce-vars is a list of pairs: (name ce-number(
+; eg.     ((ce1 1)
+;          (<c3> 3)
+;          ....)
+
+(defun var-dope (var) (assoc var *vars*))
+
+(defun ce-var-dope (var) (assoc var *ce-vars*))
+
+(defun cmp-var (test)
+    (prog (old name)
+          (setq name (sublex))
+          (setq old (assoc name *cur-vars*))
+          (cond ((and old (eq (cadr old) 'eq))
+                 (cmp-old-eq-var test old))
+                ((and old (eq test 'eq))(cmp-new-eq-var name old))
+                (t (cmp-new-var name test)))))
+
+(defun cmp-new-var (name test)
+    (setq *cur-vars* (cons (list name test *subnum*) *cur-vars*)))
+
+(defun cmp-old-eq-var (test old)
+    (link-new-node (list (intern (string-upcase
+                                    (format nil "t~as" test)))
+                         nil
+                         (current-field)
+                         (field-name (caddr old)))))
+
+(defun cmp-new-eq-var (name old)
+     (prog (pred next)
+           (setq *cur-vars* (delete old *cur-vars*))
+           (setq next (assoc name *cur-vars*))
+           (cond (next (cmp-new-eq-var name next))
+                 (t (cmp-new-var name 'eq)))
+           (setq pred (cadr old))
+           (link-new-node (list (intern (string-upcase
+                                           (format nil "t~as" pred)))
+                                nil
+                                (field-name (caddr old))
+                                (current-field)))))
+
+(defun cmp-cevar nil
+   (prog (name old)
+         (setq name (lex))
+         (setq old (assoc name *ce-vars*))
+         (when old
+               (%error "condition element variable used twice" name))
+         (push (list name 0) *ce-vars*)))
+
+(defun cmp-not nil (cmp-beta '&not))
+
+(defun cmp-nobeta nil (cmp-beta nil))
+
+(defun cmp-and nil (cmp-beta '&and))
+
+(defun cmp-beta (kind)
+  (prog (tlist vdope vname vpred vpos old)
+        (setq tlist nil)
+     la (when (atom *cur-vars*)(go lb))
+        (setq vdope (car *cur-vars*))
+        (setq *cur-vars* (cdr *cur-vars*))
+        (setq vname (car vdope)
+              vpred (cadr vdope)
+              vpos  (caddr vdope))
+        (setq old (assoc vname *vars*))
+        (cond (old (setq tlist (add-test tlist vdope old)))
+              ((neq kind '&not)(promote-var vdope)))
+        (go la)
+     lb (when kind (build-beta kind tlist))
+        (unless (eq kind '&not)(fudge))
+        (setq *last-branch* *last-node*)))
+
+(defun add-test (list new old)
+   (prog (ttype lloc rloc)
+         (incf *feature-count* 1)
+         (setq ttype (intern (string-upcase (format nil "t~ab" (cadr new)))))
+         (setq rloc (encode-singleton (caddr new)))
+         (setq lloc (encode-pair (cadr old)(caddr old)))
+         (return (cons ttype (cons lloc (cons rloc list))))))
+
+; the following two functions encode indices so that gelm can
+; decode them as fast as possible.
+
+(defun encode-pair (a b)
+  (+ (* 10000 (1- a))(1- b)))
+
+(defun encode-singleton (a) (1- a))
+
+(defun promote-var (dope)
+  (prog (vname vpred vpos new)
+        (setq vname (car dope)
+              vpred (cadr dope)
+              vpos  (caddr dope))
+        (unless (eq 'eq vpred)
+                (%error "illegal predicate for first occurrence"
+                        (list vname vpred)))
+        (setq new (list vname 0 vpos))
+        (push new *vars*)))
+
+(defun fudge nil
+  (mapc #'fudge* *vars*)
+  (mapc #'fudge* *ce-vars*))
+
+(defun fudge* (z)
+  (prog (a) (setq a (cdr z))(rplaca a (1+ (car a)))))
+
+(defun build-beta (type tests)
+  (prog (rpred lpred lnode lef)
+        (link-new-node (list '&mem nil nil (protomem)))
+        (setq rpred *last-node*)
+        (if (eq type '&and)
+            (setq lnode (list '&mem nil nil (protomem)))
+            (setq lnode (list '&two nil nil)))
+        (setq lpred (link-to-branch lnode))
+        (if (eq type '&and)
+            (setq lef lpred)
+            (setq lef (protomem)))
+        (link-new-beta-node (list type nil lef rpred tests))))
+
+(defun protomem nil (list nil))
+
+(defun memory-part (mem-node) (car (cadddr mem-node)))
+
+(defun encode-dope nil
+ (prog (r all z k)
+       (setq r nil)
+       (setq all *vars*)
+   la  (when (atom all)(return r))
+       (setq z (car all))
+       (setq all (cdr all))
+       (setq k (encode-pair (cadr z) (caddr z)))
+       (setq r (cons (car z) (cons k r)))
+       (go la)))
+
+(defun encode-ce-dope nil
+  (prog (r all z k)
+        (setq r nil)
+        (setq all *ce-vars*)
+     la (when (atom all)(return r))
+        (setq z (car all))
+        (setq all (cdr all))
+        (setq k (cadr z))
+        (setq r (cons (car z)(cons k r)))
+        (go la)))
+
+;;; linking the node
+
+(defun link-new-node (r)
+   (unless (member (car r) '(&p &mem &two &and &not))
+           (incf *feature-count* 1))
+   (incf *virtual-cnt* 1)
+   (setq *last-node* (link-left *last-node* r)))
+
+(defun link-to-branch (r)
+  (incf *virtual-cnt* 1)
+  (setq *last-branch* (link-left *last-branch* r)))
+
+(defun link-new-beta-node (r)
+  (incf *virtual-cnt* 1)
+  (setq *last-node* (link-both *last-branch* *last-node* r))
+  (setq *last-branch* *last-node*))
+
+(defun link-left (pred succ)
+   (prog (a r)
+         (setq a (left-outs pred))
+         (setq r (find-equiv-node succ a))
+         (when r (return r))
+         (incf *real-cnt* 1)
+         (attach-left pred succ)
+         (return succ)))
+
+(defun link-both (left right succ)
+  (prog (a r)
+        (setq a (intersection (left-outs left)
+                              (right-outs right) :test #'eq))
+        (setq r (find-equiv-beta-node succ a))
+        (when r (return r))
+        (incf *real-cnt* 1)
+        (attach-left left succ)
+        (attach-right right succ)
+        (return succ)))
+
+(defun attach-right (old new)
+    (rplaca (cddr old) (cons new (caddr old))))
+
+(defun attach-left (old new)
+   (rplaca (cdr old) (cons new (cadr old))))
+
+(defun right-outs (node) (caddr node))
+
+(defun left-outs (node) (cadr node))
+
+(defun find-equiv-node (node list)
+  (prog (a)
+        (setq a list)
+     l1 (cond ((atom a)(return nil))
+              ((equiv node (car a))(return (car a))))
+        (setq a (cdr a))
+        (go l1)))
+
+(defun find-equiv-beta-node (node list)
+  (prog (a)
+        (setq a list)
+     l1 (cond ((atom a)(return nil))
+              ((beta-equiv node (car a))(return (car a))))
+        (setq a (cdr a))
+        (go l1)))
+
+; do not look at the predecessor fields of beta node; they have to be
+; identical because of the way the candidate nodes were found
+
+(defun equiv (a b)
+  (and (eq (car a) (car b))
+       (or (eq (car a) '&mem)
+           (eq (car a) '&two)
+           (equal (caddr a)(caddr b)))
+       (equal (cdddr a) (cdddr b))))
+
+(defun beta-equiv (a b)
+  (and (eq (car a) (car b))
+       (equal (cddddr a)(cddddr b))
+       (or (eq (car a) '&and)(equal (caddr a) (caddr b)))))
+
+; the equivalence tests are set up to consider the contents of
+; node memories, so they are ready for the build action
+
+;;; network interpreter
+
+(defun match (flag wme)
+   (sendto flag (list wme) 'left (list *first-node*)))
+
+; node that eval-node-list is not set up to handle building
+; productions. would have to add something like ops4's build-flag
+
+(defun eval-nodelist (n1)
+  (prog nil
+    top (when (not n1)(return nil))
+        (setq *sendtocall* nil)
+        (setq *last-node* (car n1))
+        (apply (caar n1) (cdar n1))
+        (setq n1 (cdr n1))
+        (go top)))
+
+(defun sendto (flag data side nl)
+   (prog nil
+    top (when (not nl)(return nil))
+         (setq *side* side)
+         (setq *flag-part* flag)
+         (setq *data-part* data)
+         (setq *sendtocall* t)
+         (setq *last-node* (car nl))
+         (apply (caar nl)(cdar nl))
+         (setq nl (cdr nl))
+         (go top)))
+
+; &bus sets up the registers for the one-input nodes. note that this
+
+(defun &bus (outs)
+        (setq *alpha-flag-part* *flag-part*)
+        (setq *alpha-data-part* *data-part*)
+        (let ((dp (car *data-part*)))
+             (do ((i 0 (1+ i)))
+                 ((> i 63))
+                 (set (svref *registers* i) (nth i dp))))
+        (eval-nodelist outs))
+
+(defun &any (outs register const-list)
+  (prog (z c)
+        (setq z (symbol-value register))
+        (when (numberp z)(go number))
+ symbol (cond ((null const-list)(return nil))
+              ((eq (car const-list) z)(go ok))
+              (t (setq const-list (cdr const-list))(go symbol)))
+ number (cond ((null const-list)(return nil))
+              ((and (numberp (setq c (car const-list)))
+                    (= c z))
+               (go ok))
+              (t (setq const-list (cdr const-list))(go number)))
+ ok     (eval-nodelist outs)))
+
+(defun teqa (outs register constant)
+  (when (eq (symbol-value register) constant)
+        (eval-nodelist outs)))
+
+(defun tnea (outs register constant)
+  (unless (eq (symbol-value register) constant)
+          (eval-nodelist outs)))
+
+(defun txxa (outs register constant)
+  (declare (ignore constant))
+  (when (symbolp (symbol-value register)) 
+        (eval-nodelist outs)))
+
+(defun teqn (outs register constant)
+  (prog (z)
+        (setq z (symbol-value register))
+        (and (numberp z)
+             (= z constant)
+             (eval-nodelist outs))))
+
+(defun tnen (outs register constant)
+  (prog (z)
+        (setq z (symbol-value register))
+        (and (or (not (numberp z))
+                 (/= z constant))
+             (eval-nodelist outs))))
+
+(defun txxn (outs register constant)
+    (declare (ignore constant))
+        (when (numberp (symbol-value register))
+              (eval-nodelist outs)))
+
+(defun tltn (outs register constant)
+  (prog (z)
+        (setq z (symbol-value register))
+        (and (numberp z)
+             (< z constant)
+             (eval-nodelist outs))))
+
+(defun tgtn (outs register constant)
+  (prog (z)
+        (setq z (symbol-value register))
+        (and (numberp z)
+             (> z constant)
+             (eval-nodelist outs))))
+
+(defun tgen (outs register constant)
+  (prog (z)
+        (setq z (symbol-value register))
+        (and (numberp z)
+             (>= z constant)
+             (eval-nodelist outs))))
+
+(defun tlen (outs register constant)
+  (prog (z)
+        (setq z (symbol-value register))
+        (and (numberp z)
+             (<= z constant)
+             (eval-nodelist outs))))
+
+(defun teqs (outs vara varb)
+  (prog (a b)
+        (setq a (symbol-value vara)
+              b (symbol-value varb))
+        (cond ((eq a b)(eval-nodelist outs))
+              ((and (numberp a)(numberp b)(= a b))
+               (eval-nodelist outs)))))
+
+(defun tnes (outs vara varb)
+  (prog (a b)
+        (setq a (symbol-value vara)
+              b (symbol-value varb))
+        (cond ((eq a b)(return nil))
+              ((and (numberp a)
+                    (numberp b)
+                    (= a b))
+               (return nil))
+              (t (eval-nodelist outs)))))
+
+(defun txxs (outs vara varb)
+  (prog (a b)
+        (setq a (symbol-value vara)
+              b (symbol-value varb))
+        (cond ((and (numberp a)(numberp b))(eval-nodelist outs))
+              ((and (not (numberp a)) (not (numberp b)))
+               (eval-nodelist outs)))))
+
+(defun tlts (outs vara varb)
+  (prog (a b)
+        (setq a (symbol-value vara)
+              b (symbol-value varb))
+        (and (numberp a)
+             (numberp b)
+             (< a b)
+             (eval-nodelist outs))))
+
+(defun tgts (outs vara varb)
+  (prog (a b)
+        (setq a (symbol-value vara)
+              b (symbol-value varb))
+        (and (numberp a)
+             (numberp b)
+             (> a b)
+             (eval-nodelist outs))))
+
+(defun tges (outs vara varb)
+  (prog (a b)
+        (setq a (symbol-value vara)
+              b (symbol-value varb))
+        (and (numberp a)
+             (numberp b)
+             (>= a b)
+             (eval-nodelist outs))))
+
+(defun tles (outs vara varb)
+  (prog (a b)
+        (setq a (symbol-value vara)
+              b (symbol-value varb))
+        (and (numberp a)
+             (numberp b)
+             (<= a b)
+             (eval-nodelist outs))))
+
+(defun &two (left-outs right-outs)
+  (prog (fp dp)
+        (cond (*sendtocall*
+               (setq fp *flag-part*)
+               (setq dp *data-part*))
+              (t
+               (setq fp *alpha-flag-part*)
+               (setq dp *alpha-data-part*)))
+        (sendto fp dp 'left left-outs)
+        (sendto fp dp 'right right-outs)))
+
+(defun &mem (left-outs right-outs memory-list)
+  (prog (fp dp)
+        (cond (*sendtocall*
+               (setq fp *flag-part*)
+               (setq dp *data-part*))
+              (t
+               (setq fp *alpha-flag-part*)
+               (setq dp *alpha-data-part*)))
+        (sendto fp dp 'left left-outs)
+        (add-token memory-list fp dp nil)
+        (sendto fp dp 'right right-outs)))
+
+(defun &and (outs lpred rpred tests)
+  (prog (mem)
+        (cond ((eq *side* 'right)(setq mem (memory-part lpred)))
+              (t (setq mem (memory-part rpred))))
+        (cond ((not mem)(return nil))
+              ((eq *side* 'right) (and-right outs mem tests))
+              (t (and-left outs mem tests)))))
+
+(defun and-left (outs mem tests)
+  (prog (fp dp memdp tlist tst lind rind res)
+        (setq fp *flag-part*)
+        (setq dp *data-part*)
+   fail (when (null mem)(return nil))
+        (setq memdp (car mem))
+        (setq mem (cdr mem))
+        (setq tlist tests)
+ tloop  (when (null tlist) (go succ))
+        (setq tst (car tlist))
+        (setq tlist (cdr tlist))
+        (setq lind (car tlist))
+        (setq tlist (cdr tlist))
+        (setq rind (car tlist))
+        (setq tlist (cdr tlist))
+;the next line differs in and-left & and-right)
+        (setq res (funcall tst (gelm memdp rind) (gelm dp lind)))
+        (cond (res (go tloop))
+              (t (go fail)))
+  succ
+;the next line differs from and-left & and-right)
+        (sendto fp (cons (car memdp) dp) 'left outs)
+        (go fail)))
+
+(defun and-right (outs mem tests)
+  (prog (fp dp memdp tlist tst lind rind res)
+        (setq fp *flag-part*)
+        (setq dp *data-part*)
+   fail (when (null mem)(return nil))
+        (setq memdp (car mem))
+        (setq mem (cdr mem))
+        (setq tlist tests)
+  tloop (when (null tlist) (go succ))
+        (setq tst (car tlist))
+        (setq tlist (cdr tlist))
+        (setq lind (car tlist))
+        (setq tlist (cdr tlist))
+        (setq rind (car tlist))
+        (setq tlist (cdr tlist))
+        (setq res (funcall tst (gelm dp rind) (gelm memdp lind)))
+        (cond (res (go tloop))
+              (t (go fail)))
+   succ (sendto fp (cons (car dp) memdp) 'right outs)
+        (go fail)))
+
+(defun teqb (new eqvar)
+  (cond ((eq new eqvar) t)
+        ((not (numberp new)) nil)
+        ((not (numberp eqvar)) nil)
+        ((= new eqvar) t)
+        (t nil)))
+
+(defun tneb (new eqvar)
+  (cond ((eq new eqvar) nil)
+        ((not (numberp new)) t)
+        ((not (numberp eqvar)) t)
+        ((= new eqvar) nil)
+        (t t)))
+
+(defun tltb (new eqvar)
+  (cond ((not (numberp new)) nil)
+        ((not (numberp eqvar)) nil)
+        ((< new eqvar) t)
+        (t nil)))
+
+(defun tgtb (new eqvar)
+  (cond ((not (numberp new)) nil)
+        ((not (numberp eqvar)) nil)
+        ((> new eqvar) t)
+        (t nil)))
+
+(defun tgeb (new eqvar)
+  (cond ((not (numberp new)) nil)
+        ((not (numberp eqvar)) nil)
+        ((>= new eqvar) t)
+        (t nil)))
+
+(defun tleb (new eqvar)
+  (cond ((not (numberp new)) nil)
+        ((not (numberp eqvar)) nil)
+        ((<= new eqvar) t)
+        (t nil)))
+
+(defun txxb (new eqvar)
+  (cond ((numberp new)
+         (cond ((numberp eqvar) t)
+               (t nil)))
+        (t
+         (cond ((numberp eqvar) nil)
+               (t t)))))
+
+(defun &p (rating name var-dope ce-var-dope rhs)
+  (declare (ignore var-dope ce-var-dope rhs))
+  (prog (fp dp)
+        (cond (*sendtocall*
+               (setq fp *flag-part*)
+               (setq dp *data-part*))
+              (t
+               (setq fp *alpha-flag-part*)
+               (setq dp *alpha-data-part*)))
+               (and (member fp '(nil old))
+                    (removecs name dp))
+               (and fp (insertcs name dp rating))))
+
+(defun &old (a b c d e)
+  (declare (ignore a b c d e))
+   nil)
+
+(defun &not (outs lmem rpred tests)
+  (cond ((and (eq *side* 'right) (eq *flag-part* 'old)) nil)
+        ((eq *side* 'right)(not-right outs (car lmem) tests))
+        (t (not-left outs (memory-part rpred) tests lmem))))
+
+(defun not-left (outs mem tests own-mem)
+  (prog (fp dp memdp tlist tst lind rind res c)
+        (setq fp *flag-part* dp *data-part*)
+        (setq c 0)
+   fail (when (null mem)(go fin))
+        (setq memdp (car mem))
+        (setq mem (cdr mem))
+        (setq tlist tests)
+  tloop (when (null tlist)(setq c (1+ c)) (go fail))
+        (setq tst (car tlist))
+        (setq tlist (cdr tlist))
+        (setq lind (car tlist))
+        (setq tlist (cdr tlist))
+        (setq rind (car tlist))
+        (setq tlist (cdr tlist))
+;the next line differs in not-left & -right
+        (setq res (funcall tst (gelm memdp rind)
+                               (gelm dp lind)))
+        (cond (res (go tloop))
+              (t (go fail)))
+    fin (add-token own-mem fp dp c)
+        (when (zerop c) (sendto fp dp 'left outs))))
+
+(defun not-right (outs mem tests)
+  (prog (fp dp memdp tlist tst lind rind res newfp inc newc)
+        (setq fp *flag-part* dp *data-part*)
+        (cond ((not fp) (setq inc -1) (setq newfp 'new))
+              ((eq fp 'new)(setq inc 1)(setq newfp nil))
+              (t (return nil)))
+   fail (when (null mem)(return nil))
+        (setq memdp (car mem))
+        (setq newc (cadr mem))
+        (setq tlist tests)
+  tloop (when (null tlist)(go succ))
+        (setq tst (car tlist))
+        (setq tlist (cdr tlist))
+        (setq lind (car tlist))
+        (setq tlist (cdr tlist))
+        (setq rind (car tlist))
+        (setq tlist (cdr tlist))
+;the next line differs in not-left & -right
+        (setq res (funcall tst (gelm dp rind)
+                               (gelm memdp lind)))
+        (cond (res (go tloop))
+              (t (setq mem (cddr mem)) (go fail)))
+   succ (incf newc inc)
+        (rplaca (cdr mem) newc)
+        (cond ((or (and (= inc -1) (zerop newc))
+                   (and (= inc  1) (zerop newc)))
+               (sendto newfp memdp 'right outs)))
+        (setq mem (cddr mem))
+        (go fail)))
+
+;;; node memories
+
+(defun add-token (memlis flag data-part num)
+  (prog (was-present)
+        (cond ((eq flag 'new)
+               (setq was-present nil)
+               (real-add-token memlis data-part num))
+              ((not flag)
+               (setq was-present (remove-old memlis data-part num)))
+              ((eq flag 'old)
+               (setq was-present t)))
+        (return was-present)))
+
+(defun real-add-token (lis data-part num)
+  (incf *current-token* 1)
+  (when num (rplaca lis (cons num (car lis))))
+  (rplaca lis (cons data-part (car lis))))
+
+(defun remove-old (lis data num)
+  (if num (remove-old-num lis data)
+          (remove-old-no-num lis data)))
+
+(defun remove-old-num (lis data)
+  (prog (m next last)
+        (setq m (car lis))
+        (cond ((atom m)(return nil))
+              ((top-levels-eq data (car m))
+               (decf *current-token* 1)
+               (rplaca lis (cddr m))
+               (return (car m))))
+        (setq next m)
+   loop (setq last next)
+        (setq next (cddr next))
+        (cond ((atom next)(return nil))
+              ((top-levels-eq data (car next))
+               (rplacd (cdr last) (cddr next))
+               (decf *current-token* 1)
+               (return (car next)))
+              (t (go loop)))))
+
+(defun remove-old-no-num (lis data)
+  (prog (m next last)
+        (setq m (car lis))
+        (cond ((atom m)(return nil))
+              ((top-levels-eq data (car m))
+               (decf *current-token* 1)
+               (rplaca lis (cdr m))
+               (return (car m))))
+        (setq next m)
+   loop (setq last next)
+        (setq next (cdr next))
+        (cond ((atom next)(return nil))
+              ((top-levels-eq data (car next))
+               (rplacd last (cdr next))
+               (decf *current-token* 1)
+               (return (car next)))
+              (t (go loop)))))
+
+;;; conflict resolution
+;
+;
+; each conflict set element is a list of the following form:
+; (p-name . data-part) (sorted wm-recency) special-case-number)
+
+(defun removecs (name data)
+  (prog (cr-data inst cs)
+        (setq cr-data (cons name data))
+        (setq cs *conflict-set*)
+      l (when (null cs)
+              (record-refract name data)
+              (return nil))
+        (setq inst (car cs))
+        (setq cs (cdr cs))
+        (unless (top-levels-eq (car inst) cr-data) (go l))
+        (setq *conflict-set* (delete inst *conflict-set*))))
+
+(defun insertcs (name data rating)
+  (prog (instan)
+        (when (refracted name data) (return nil))
+        (setq instan (list (cons name data) (order-tags data) rating))
+        (when (atom *conflict-set*) (setq *conflict-set* nil))
+        (return (setq *conflict-set* (cons instan *conflict-set*)))))
+
+(defun order-tags (dat)
+  (prog (tags)
+        (setq tags nil)
+     l1 (when (atom dat) (go l2))
+        (setq tags (cons (creation-time (car dat)) tags))
+        (setq dat (cdr dat))
+        (go l1)
+     l2 (cond ((eq *strategy* 'mea)
+               (return (cons (car tags) (dsort (cdr tags)))))
+              (t (return (dsort tags))))))
+
+; destructive sort x into descending order
+
+(defun dsort (x) (sort x #'>))
+
+(defun conflict-resolution nil
+  (prog (best len)
+        (setq len (length *conflict-set*))
+        (when (> len *max-cs*) (setq *max-cs* len))
+        (setq *total-cs* (+ *total-cs* len))
+        (cond (*conflict-set*
+               (setq best (best-of *conflict-set*))
+               (setq *conflict-set* (delete best *conflict-set*))
+               (return (pname-instantiation best)))
+              (t (return nil)))))
+
+(defun best-of (set) (best-of* (car set) (cdr set)))
+
+(defun best-of* (best rem)
+  (cond ((not rem) best)
+        ((conflict-set-compare best (car rem))
+         (best-of* best (cdr rem)))
+        (t (best-of* (car rem) (cdr rem)))))
+
+(defun remove-from-conflict-set (name)
+  (prog (cs entry)
+   l1   (setq cs *conflict-set*)
+   l2   (when (atom cs) (return nil))
+        (setq entry (car cs))
+        (setq cs (cdr cs))
+        (cond ((eq name (caar entry))
+               (setq *conflict-set* (delete entry *conflict-set*))
+               (go l1))
+              (t (go l2)))))
+
+(defun pname-instantiation (conflict-elem) (car conflict-elem))
+
+(defun order-part (conflict-elem) (cdr conflict-elem))
+
+(defun instantiation (conflict-elem)
+  (cdr (pname-instantiation conflict-elem)))
+
+(defun conflict-set-compare (x y)
+  (prog (x-order y-order x1 y1 xv yv)
+        (setq x-order (order-part x) y-order (order-part y))
+        (setq x1 (car x-order) y1 (car y-order))
+   data (cond ((and (null x1) (null y1)) (go ps))
+              ((null y1) (return t))
+              ((null x1) (return nil)))
+        (setq xv (car x1) yv (car y1))
+        (cond ((> xv yv) (return t))
+              ((> yv xv) (return nil)))
+        (setq x1 (cdr x1) y1 (cdr y1))
+        (go data)
+   ps   (setq x1 (cdr x-order) y1 (cdr y-order))
+   ps1  (when (null x1) (return t))
+        (setq xv (car x1) yv (car y1))
+        (cond ((> xv yv) (return t))
+              ((> yv xv) (return nil)))
+        (setq x1 (cdr x1) y1 (cdr y1))
+        (go ps1)))
+
+(defun conflict-set nil
+  (prog (cnts cs p z best)
+        (setq cnts nil)
+        (setq cs *conflict-set*)
+   l1   (when (atom cs) (go l2))
+        (setq p (caaar cs))
+        (setq cs (cdr cs))
+        (setq z (assoc p cnts))
+        (cond ((null z) (setq cnts (cons (cons p 1) cnts)))
+              (t (rplacd z (1+ (cdr z)))))
+        (go l1)
+   l2   (cond ((atom cnts)
+               (setq best (best-of *conflict-set*))
+               (terpr)
+               (return (list (caar best) 'dominates))))
+        (terpr)
+        (princ (caar cnts))
+        (cond ((> (cdar cnts) 1)
+               (princ "        (")
+               (princ (cdar cnts))
+               (princ " occurrences)")))
+        (setq cnts (cdr cnts))
+        (go l2)))
+
+;;; wm maintaining functions
+;
+;   the order of operations in the following two functions is critical.
+;   add-to-wm order: (1) record change (2) match (3) change wm
+;   (back will not not store state property unless wm changes are
+;   recorded before the cs changes that they caouse) (match will
+;   give errors if the thing matched is not in wm at the time)
+
+(defun add-to-wm (wme override)
+  (prog (fa z part timetag port)
+        (setq *critical* t)
+        (incf *current-wm* 1)
+        (when (> *current-wm* *max-wm*)
+              (setq *max-wm* *current-wm*))
+        (incf *action-count* 1)
+        (setq fa (wm-hash wme))
+        (unless (member fa *wmpart-list* :test #'eq)
+                (push fa *wmpart-list*))
+        (setq part (get fa 'wmpart*))
+        (if override (setq timetag override)
+                     (setq timetag *action-count*))
+        (setq z (cons wme timetag))
+        (putprop fa (cons z part) 'wmpart*)
+        (record-change '=>wm *action-count* wme)
+        (match 'new wme)
+        (setq *critical* nil)
+        (cond ((and *in-rhs* *wtrace*)
+               (setq port (trace-file))
+               (terpr port)
+               (princ "=>wm: " port)
+               (ppelm wme port)))))
+
+; remove-from-wm uses eq, not equal to determine if wme is present
+
+(defun remove-from-wm (wme)
+  (prog (fa z part timetag port)
+        (setq fa (wm-hash wme))
+        (setq part (get fa 'wmpart*))
+        (setq z (assoc wme part))
+        (unless z (return nil))
+        (setq timetag (cdr z))
+        (when (and *wtrace* *in-rhs*)
+              (setq port (trace-file))
+              (terpr port)
+              (princ "<=wm: " port)
+              (ppelm wme port))
+        (incf *action-count* 1)
+        (setq *critical* t)
+        (decf *current-wm* 1)
+        (record-change '<=wm timetag wme)
+        (match nil wme)
+        (putprop fa (delete z part) 'wmpart*)
+        (setq *critical* nil)))
