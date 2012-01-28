@@ -1,0 +1,280 @@
+
+Received: from solaris.cs.hw.ac.uk (solaris) by brahma.cs.hw.ac.uk; Mon, 29 Aug 88 09:32:36 BST
+From: Steven Salvini <steve@uk.ac.hw.cs>
+Date: Mon, 29 Aug 88 09:32:16 BST
+Message-Id: <6659.8808290832@solaris.cs.hw.ac.uk>
+To: popx@uk.ac.oxford.vax
+Subject: user manual
+
+.\" SOF
+.nr TS 10
+.MH ""
+.LH ""
+.RH ""
+.LF ""
+.RF ""
+.MF "[%]"
+.ps +6
+.vs +6
+.ce
+\fBPROTEST USER MANUAL\fP
+.ps
+.vs
+.sp 8
+.DS B C
+Introduction							2
+Getting Started						2
+General Strategy for Building a Prototype		2
+Giving the System Your Replies			2
+Description of the Facilities				3
+Main Menu							3
+Knowledge Examination Menu			3
+Format for Rules and Questions			4
+BNF Description of Rule Format			6
+.DE
+.FP
+.NS "INTRODUCTION"
+.LP
+PROTEST is a software tool for the construction of prototype versions
+of expert systems.
+It provides facilities to build the necessary knowledge base.
+PROTEST is designed for use by both knowledge engineers and domain
+experts who are familiar with the concepts of expert systems.
+.NS "GETTING STARTED"
+.LP
+To run the system from the Unix operating system, type -
+.DS
+				protest
+
+Alternatively, type -
+
+				prolog
+
+and then when the '?-' prompt appears, type -
+
+				[-'loader.pl'].
+
+Both strategies will load in the required programs.
+
+Once either approach has completed the system can be started by typing -
+
+                     	go.
+.DE
+.LP
+The title page will then be displayed along with a message inviting
+you to press the \fBRETURN\fR key to continue.   This is done at a number
+of points in the program to allow you to read results or instructions
+before going on to do something else.   Pressing \fBRETURN\fR here will
+result in the MAIN MENU being displayed.
+.NS "GENERAL STRATEGY FOR BUILDING A PROTOTYPE"
+.LP
+Before looking at each of the facilities in detail, let us consider a
+general strategy for building a prototype expert system with this
+tool.
+.LP
+The first requirement is to produce a file containing some goals
+which the system is to deduce and the rules which it is to use in
+doing this.
+The simplest way to do this is by using your favourite editor\(dg.
+When the rule base seems to be working satisfactorily, you can then
+provide a better user interface by adding "questions" to the rule
+base.
+.FS
+The original PROTEST system contained a rulebase editor written in
+Prolog whilst this offered some advantages to the naive user (e.g.
+limited error correction) its performance left something to be desired!
+.FE
+.\"
+.NS "GIVING THE SYSTEM YOUR REPLIES"
+.LP
+In using PROTEST, you will need to enter information on many
+occasions.
+When the system asks you a question it will usually give an
+indication of what it is expecting as an answer.   However, at any
+time you may ask what the valid responses are by typing "valid".  
+This may also be entered in capital letters, i.e., as "VALID" or
+abbreviated to "v" or "V".   The system will respond by showing you a
+list of the responses it understands at this particular point in the 
+program.   A short explanation of what each does or represents is
+also given.
+.KS
+.LP
+All the words used as responses can be entered in a number of ways as
+described for "valid".
+.TS
+center;
+cb cb
+l l.
+RESPONSE	MAY BE GIVEN AS:
+yes	yes, YES, y or Y
+no	no, NO, n or N
+why	why, WHY, w or W
+valid	valid, VALID, v or V
+quit	quit, QUIT, q or Q
+.TE
+.KE
+.LP
+The option "quit" is provided so that should you get into any
+difficulties at any point you can stop what you are doing by
+typing "q" and no damage will be done.
+.NS "DESCRIPTION OF THE FACILITIES"
+.LP
+The system is menu-based for ease of use and the facilities will now
+be described in relation to the menus in which they are provided.  
+In addition to these facilities each menu has a "help" option and an
+option which allows you to "back-up" to the previous level or at the
+top level to "quit" the session.
+.SD "Main Menu"
+.DS J
+MAIN MENU
+
+#1   Consult Expert System in backward chaining mode
+#2   Consult Expert System in mixed mode
+#3   Knowledge Base Examination Menu
+.DE
+.XP 1 1
+\fBBackward chaining mode:\fR This is a simple backward-
+chaining inference strategy followed by the output of 
+results and the use of explanation facilities as in #2.
+.IP
+Finally the results of this are output shown as a single
+firm conclusion if one has been deduced or else as a list of
+possible conclusions in order of their certainties.   You
+may then use the explanation facilities to view the system's
+chain of reasoning for each deduction.
+.XP
+\fBMixed mode:\fR This is a "mixed" strategy inference
+engine which first prompts you to enter your initial
+findings and then tries to deduce one or more of the goals. 
+If a firm conclusion is not reached, it then tries to solve
+the problem by backward-chaining as in #1.
+The first goal chosen is that
+found to be most likely by the first deduction strategy.
+.XP
+\fBKnowledge Base Examination Menu:\fR This is the entry point to
+the knowledge base "viewing" facilities.
+.NS "Knowledge Base Examination Menu"
+.DS J
+KNOWLEDGE BASE EXAMINATION MENU
+
+#1	Show all facts
+#2	Show top level goals
+#3	Show all rules
+#4	Show rule by number
+#5	Show rules containing X
+#6	Show all questions
+#7	Show question by number
+#8	Show questions containing X
+.DE
+.IP
+These eight options allow you to look at the contents of the
+knowledge base in a number of ways.   #1, #2, #3 and #6 display
+all the members of a particular class of knowledge structure one
+at a time.   #4 and #7 only display a single item which is
+specified by its unique reference number.   By using #5 and #8
+you can find out which rules or questions contain a particular
+word or phrase.
+.\"
+.SU "FORMAT FOR RULES AND QUESTIONS"
+.LP
+The rules that you write for use in this system should be "if-then"
+rules with both the antecedents and the consequent consisting of
+Object/Attribute/Value triples.   You should give each rule an
+associated certainty factor to indicate (on a scale of 0 - 1) how
+strongly you believe that the antecedent(s) being true implies that
+the consequent is also true.
+.DS
+This gives the following basic structure  -
+
+	ruleX:
+			if
+					ObjectA/AttributeA/ValueA
+			then
+					ObjectC/AttributeC/ValueC
+			with
+					certainty(CF).
+
+		where	 CF is the certainty factor; and X is a unique rule number for reference purposes.
+.DE
+.DS
+The questions conform to the following layout:-
+
+	questionX:
+				Objective/Attribute/[Values]
+				- Message
+				- Type.
+
+		where	X is again a unique reference number;
+				Values are the two or more legal fillers for the value parameter;
+				Message is the text of the question to be shown to the user (enclosed by double 
+				quotes (")); and Type is one of "opposite","single" or "multiple".
+.DE
+The Type parameter describes the relationship that holds between
+different Values as follows:-
+.KP "single:"
+values are mutually exclusive, if one is selected it
+is true (certainty factor = 1) and the other(s) are 
+false (certainty factor -1).  e.g. MALE and FEMALE.
+.KP "opposite:"
+if one value is believed with certainty X then the
+other value(s) will have 
+certainty -X. 
+.br
+e.g. PRESENT and ABSENT.
+.KP "multiple:"
+any, all or none of these value may be selected and
+their associated certainties are completely independent of one another.
+.\"
+.\" EOF
+.nr TS 10
+.MH ""
+.LH ""
+.RH ""
+.LF ""
+.RF ""
+.TL 0
+.HC ""
+.MF "[6]"
+.TL 1
+.BC "GRAMMAR DEFINITION OF THE KNOWLEDGE BASE IN BACKUS-NAUR FORM"
+.DS B
+<knowledge_base>		::=	<rule_base> <fact_base> <rule_base>
+<rule_base>				::=	<rule> | <rule> <rule_base> | <question> <rule_base> | <top_level_goals> <rule_base>
+<rule>				::=	<rule_label> : <if-then_rule> <strength>
+<rule_label>			::=	rule <rule_ref_number>
+<rule_ref_number>		::=	\fBinteger\fR
+<if-then_rule>			::=	if {<antecedent>} then <consequent>
+<antecedent>			::=	<associative_triple> | <associative_triple> <antecedent>
+<consequent>			::=	<associative_triple>
+<associative_triple>		::=	<object> <attribute> <value>
+<object>				::=	\fBtext\fR
+<attribute>				::=	\fBtext\fR
+<value>				::=	\fBtext\fR
+<strength>				::=	with certainty(<certainty_factor>)
+<certainty_factor>			::=	\fBreal_number\fR
+<question>				::=	<object>/<attribute>/<values> - <message> - <type>
+<values>				::=	[<value>] | [<value> <values>]
+<message>				::=	\fBstring\fR
+<type>				::=	single | opposite | multiple
+<top_level_goals>			::=	top_level_goals: <goals>
+<goals>				::=	[<goal>] | [<goal> <goals>]
+<goal>				::=	<value>
+<fact_base>				::=	<fact> | <told> | <fact> <fact_base> | <told> <fact_base>
+<fact>				::=	fact: <associative_triple> <strength>
+<told>				::=	told: <associative_triple> <strength>
+.DE
+.LP
+In this description:-
+.KP "\fBtext\fR"
+is any sequence of printing, space, tab, and new-line characters enclosed by
+single quotes (') or any sequence of lower case alphabetic characters and
+underscore characters not so enclosed;
+.KP "\fBstring\fR"
+is any sequence of printing, space, tab, and new-line characters enclosed
+by double quotes (");
+.KP "\fBreal_number\fR"
+is any real number in the range
+-1.0 to 1.0 inclusive; and
+.KP "\fBinteger\fR"
+is any integer value.
+.\"

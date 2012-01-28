@@ -1,0 +1,37 @@
+PROTEST EXPERT SYSTEM
+
+This is a cut-down version of the expert system building tool produced by
+Steven Salvini as part of his M.Sc. dissertation in 1986.   It comprises
+a number of files which are loaded via the "loader.pl" program thus to get
+it running ->
+
+    prolog
+
+    [-"loader.pl"].
+
+    go.
+
+and you're off!
+
+---
+
+COMPATABILITY
+
+The anticipated problems would be as follows...
+
+(i) Change the file names in "loader.pl" as appropriate to your system!
+
+(ii)    The system expects that the "writef.pl" file from the Edinburgh Prolog
+    Library is available - this is public domain so if you don't have it,
+    just ask AIAI at Edinburgh.
+
+(iii) It also requires a file called "termcap" which does screen handling...
+    This can easily be got around as the only screen handling is clear_screen,
+    video(inverse) & video(normal) - best idea is to get a terminal manual and
+    work from there.
+
+    (I've actually included a copy of "termcap" but it may not work on your
+     system - the Prolog you're using must have a "getenv" procedure...)
+
+(iv)    Works on Edinburgh Prolog - and Arity Prolog (PC version) with the screen
+    handling alterted accordingly (e.g. clear_screen becomes cls)

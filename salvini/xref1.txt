@@ -1,0 +1,439 @@
+
+Received: from solaris.cs.hw.ac.uk (solaris) by brahma.cs.hw.ac.uk; Mon, 29 Aug 88 09:33:30 BST
+From: Steven Salvini <steve@uk.ac.hw.cs>
+Date: Mon, 29 Aug 88 09:33:10 BST
+Message-Id: <6668.8808290833@solaris.cs.hw.ac.uk>
+To: popx@uk.ac.oxford.vax
+Subject: xref listing
+
+
+                                           **********************************
+                                           * PROLOG CROSS REFERENCE LISTING *
+                                           **********************************
+
+                                                     Son of PROTEST
+
+
+  PREDICATE               FILE           CALLED BY
+
+
+
+
+acc_do_asserts/7        history.pl    do_asserts/8 acc_do_asserts/7 
+
+add/3                   explore.pl    most_likely_first/3 
+
+add_to_answers/4        explore.pl    forward/1 
+
+ante_solve/2            explore.pl    forward/1 ante_solve/2 
+
+ascertain/3             explore.pl    add_to_answers/4 create_soln_tree/9 
+
+assert_all/4            history.pl    do_asserts/8 acc_do_asserts/7 assert_all/4 
+
+assert_non_choices/6    history.pl    do_asserts/8 assert_non_choices/6 
+
+assign_sym_cert/2       show_answer.pl
+                                      show_tree2/2 show_tree3/4 
+
+aux_anc/6               history.pl    assert_non_choices/6 
+
+aux_htit/2              main.pl       hunt_t_in_triples/2 
+
+aux_htitq/2             main.pl       aux_htq/2 
+
+aux_htq/2               main.pl       hunt_target_in_questions/2 
+
+aux_htr/2               main.pl       hunt_target_in_rules/2 
+
+aux_make_OAV_triples/5  explore.pl    make_OAV_triples/5 aux_make_OAV_triples/5 
+
+aux_mc/2                history.pl    maintain_chosen/1 
+
+banner/1                utilities.pl  title_page/2 
+
+bc/1                    utilities.pl  <user> get_bits/2 
+
+between/5               explore.pl    NOT CALLED
+
+bottom_menu_line/3      history.pl    print_menu1/6 
+
+centre_title/2          utilities.pl  banner/1 
+
+check_any_rb_loaded/0   utilities.pl  do_main_choice/2 
+
+check_file_name/3       utilities.pl  get_file_name/3 
+
+check_if_OAV/3          explore.pl    most_likely_first/3 check_if_OAV/3 
+
+check_pause_message/1   utilities.pl  pause/1 
+
+check_rb_loaded/1       utilities.pl  NOT CALLED
+
+clause_is_a/2           utilities.pl  check_any_rb_loaded/0 show_all_rules/0 show_all_questions/0 <user> explore/4 
+                                      retract_all/1 
+
+clear_screen/0          utilities.pl  go/0 main_menu/1 do_main_choice/2 tidy_dynamic_kb/0 do_te_choice/1 
+                                      report_result_aht/2 do_show_specified_rule/1 show_fact/1 show_question/1 
+                                      investigate/3 more_investigation/4 trace_usage/2 show_certainty_for_trace/3 
+                                      title_page/2 object_history/1 do_ph/4 print_menu1/6 user_answer/3 do_explain/2 
+                                      select_full_diagnoses/1 show_tree1/1 do_command/3 
+
+conc/3                  utilities.pl  clause_is_a/2 conc/3 conc_atom/3 get_base/2 make_OAV_triples/5 
+                                      most_likely_first/3 
+
+conc_atom/3             utilities.pl  do_ssr/3 do_ssq/2 
+
+create_list/2           show_answer.pl
+                                      show_tree2/2 show_tree3/4 
+
+create_soln_tree/9      explore.pl    modify/6 create_soln_tree/9 
+
+do_asserts/8            history.pl    print_menu1/6 do_asserts/8 
+
+do_check_rb_loaded/1    utilities.pl  check_any_rb_loaded/0 
+
+do_command/3            show_answer.pl
+                                      show_tree_explain/1 do_command/3 
+
+do_explain/2            show_answer.pl
+                                      explain/1 
+
+do_get_base/2           utilities.pl  check_rb_loaded/1 get_base/2 
+
+do_graemes_bit_about_creating_lists/2
+                        show_answer.pl
+                                      create_list/2 
+
+do_main_choice/2        main.pl       main_menu/1 
+
+do_ok_reply_yn/2        utilities.pl  input_yes_no/1 
+
+do_ph/4                 history.pl    object_history/1 
+
+do_sdc/3                show_answer.pl
+                                      select_full_diagnoses/1 
+
+do_show_specified_question/1
+                        main.pl       do_ssq/2 
+
+do_show_specified_rule/1
+                        main.pl       do_ssr/3 do_command/3 
+
+do_ssq/2                main.pl       show_specified_question/1 
+
+do_ssr/3                main.pl       show_specified_rule/2 
+
+do_te_another/1         main.pl       do_te_choice/1 
+
+do_te_choice/1          main.pl       do_main_choice/2 
+
+explain/1               show_answer.pl
+                                      do_main_choice/2 
+
+explore/4               explore.pl    explore/4 solve/5 solve_and_mod/8 
+
+export/1                utilities.pl  NOT CALLED
+
+export_clause/2         utilities.pl  export/1 
+
+find_line_units/3       utilities.pl  banner/1 find_line_units/3 
+
+flatten/2               show_answer.pl
+                                      do_graemes_bit_about_creating_lists/2 
+
+flatten1/2              show_answer.pl
+                                      flatten/2 flatten1/2 
+
+forward/1               explore.pl    forward_group/0 forward/1 
+
+forward_group/0         explore.pl    forward_solve/2 
+
+forward_solve/2         explore.pl    investigate/3 
+
+found/4                 explore.pl    explore/4 ante_solve/2 
+
+get_base/2              utilities.pl  do_check_rb_loaded/1 
+
+get_bits/2              utilities.pl  banner/1 get_bits/2 
+
+get_certainty/2         explore.pl    explore/4 get_top_level_derives/3 forward/1 ante_solve/2 solve/5 solve_and_mod/8 
+                                      assign_sym_cert/2 
+
+get_file_name/3         utilities.pl  get_base/2 
+
+get_more_chars/3        utilities.pl  read_string/1 get_more_chars/3 
+
+get_most_likely/2       explore.pl    goal_in_mind/2 
+
+get_top_level_derives/3 explore.pl    forward_solve/2 get_top_level_derives/3 
+
+get_top_level_goals/1   explore.pl    investigate/3 
+
+go/0                    main.pl       <user> 
+
+goal_in_mind/2          explore.pl    investigate/3 
+
+greater_than/4          explore.pl    NOT CALLED
+
+htab/0                  utilities.pl  show_solve/1 show_certainty_for_trace/3 
+
+htab/1                  utilities.pl  htab/0 
+
+htab/2                  utilities.pl  htab/1 htab/2 
+
+hunt_t_in_triples/2     main.pl       aux_htr/2 hunt_t_in_triples/2 
+
+hunt_target_in_questions/2
+                        main.pl       do_te_choice/1 hunt_target_in_questions/2 
+
+hunt_target_in_rules/2  main.pl       do_te_choice/1 hunt_target_in_rules/2 
+
+in_word/3               utilities.pl  readword/4 restword/4 
+
+input_answer/2          explore.pl    get_most_likely/2 
+
+input_certainty/2       user_answer.pl
+                                      do_asserts/8 acc_do_asserts/7 user_answer/3 
+
+input_history/0         history.pl    do_main_choice/2 
+
+input_integer/1         utilities.pl  show_specified_rule/2 show_specified_question/1 
+
+input_number/3          utilities.pl  main_menu/1 do_main_choice/2 print_menu1/6 select_full_diagnoses/1 
+
+input_yes_no/1          utilities.pl  check_any_rb_loaded/0 check_file_name/3 do_te_choice/1 goal_in_mind/2 
+                                      more_investigation/4 more_solve/6 object_history/1 explain/1 
+
+invert/2                utilities.pl  explore/4 between/5 greater_than/4 less_than/4 ante_solve/2 
+
+investigate/2           explore.pl    do_main_choice/2 
+
+investigate/3           explore.pl    investigate/2 
+
+label_tree/5            explore.pl    add_to_answers/4 modify/6 create_soln_tree/9 
+
+less_than/4             explore.pl    NOT CALLED
+
+main_menu/1             main.pl       go/0 
+
+maintain_chosen/1       history.pl    do_asserts/8 
+
+make_OAV_triples/4      explore.pl    get_top_level_goals/1 make_OAV_triples/4 
+
+make_OAV_triples/5      explore.pl    make_OAV_triples/5 
+
+max/3                   utilities.pl  explore/4 ante_solve/2 
+
+means/3                 utilities.pl  ok_number/4 ok_integer/2 ok_reply_yn/2 ok_reply_ic/2 
+
+member/2                utilities.pl  member/2 remove_duplicates/3 aux_htitq/2 input_answer/2 star_if_chosen/1 aux_mc/2 
+                                      aux_anc/6 
+
+min/3                   utilities.pl  explore/4 ante_solve/2 ascertain/3 
+
+modify/6                explore.pl    explore/4 
+
+modify_rule_cert/3      explore.pl    forward/1 solve_and_mod/8 
+
+modulus/2               utilities.pl  ascertain/3 write_branches/6 
+
+more_investigation/4    explore.pl    investigate/3 
+
+more_solve/6            explore.pl    solve/5 
+
+most_likely_first/3     explore.pl    goal_in_mind/2 more_investigation/4 
+
+name_all/2              show_answer.pl
+                                      do_graemes_bit_about_creating_lists/2 name_all/2 
+
+name_all_1/2            show_answer.pl
+                                      name_all/2 
+
+new_prompt/0            utilities.pl  go/0 
+
+not_askable/4           undefined     explore/4 
+
+object_history/1        history.pl    input_history/0 object_history/1 
+
+ok_integer/2            utilities.pl  input_integer/1 
+
+ok_number/4             utilities.pl  input_number/3 
+
+ok_reply_ic/2           user_answer.pl
+                                      input_certainty/2 
+
+ok_reply_yn/2           utilities.pl  input_yes_no/1 
+
+ok_request/2            show_answer.pl
+                                      show_tree_explain/1 do_command/3 
+
+pad_left/3              utilities.pl  centre_title/2 pad_left/3 
+
+pause/1                 utilities.pl  check_rb_loaded/1 go/0 do_main_choice/2 do_te_choice/1 report_result_aht/2 
+                                      aux_htq/2 show_fact/1 show_all_rules/0 show_all_questions/0 show_diff_diag/1 
+                                      trace_usage/2 show_certainty_for_trace/3 do_asserts/8 show/1 show_tree1/1 
+                                      do_command/3 
+
+pnumber/1               show_answer.pl
+                                      write_branches/6 
+
+print_line_unit/2       utilities.pl  find_line_units/3 print_line_unit/2 
+
+print_menu1/6           history.pl    do_ph/4 user_answer/3 
+
+print_menu_lines/3      history.pl    show_all_goals/0 print_menu1/6 print_menu_lines/3 
+
+process_reply_ic/3      user_answer.pl
+                                      input_certainty/2 
+
+pseudo/3                show_answer.pl
+                                      ok_request/2 
+
+pstring/1               utilities.pl  pstring/1 get_file_name/3 show_question/1 title_page/2 title_message_start/1 
+                                      print_menu1/6 
+
+pstring/2               utilities.pl  write_nodes/5 
+
+pstring/3               utilities.pl  pstring/2 pstring/3 
+
+read_string/1           utilities.pl  NOT CALLED
+
+read_word/1             utilities.pl  input_number/3 input_integer/1 input_yes_no/1 get_file_name/3 user_answer/3 
+                                      input_certainty/2 show_tree_explain/1 do_command/3 
+
+read_word/2             utilities.pl  do_te_choice/1 input_answer/2 
+
+readword/4              utilities.pl  read_word/1 read_word/2 readword/4 
+
+reduce/2                user_answer.pl
+                                      process_reply_ic/3 
+
+remove_duplicates/2     utilities.pl  input_history/0 
+
+remove_duplicates/3     utilities.pl  remove_duplicates/2 remove_duplicates/3 most_likely_first/3 
+
+remove_goal/3           explore.pl    most_likely_first/3 remove_goal/3 
+
+remove_keys/3           show_answer.pl
+                                      show/1 remove_keys/3 
+
+report_result_aht/2     main.pl       aux_htr/2 
+
+restword/4              utilities.pl  readword/4 restword/4 
+
+retract_all/1           explore.pl    tidy_dynamic_kb/0 more_investigation/4 
+
+retract_goal/2          explore.pl    add_to_answers/4 
+
+retract_unknowns/0      utilities.pl  more_investigation/4 
+
+reverse/2               utilities.pl  most_likely_first/3 sort_answer/2 
+
+reverse/3               utilities.pl  reverse/2 reverse/3 
+
+select_explanation/3    show_answer.pl
+                                      do_sdc/3 select_explanation/3 
+
+select_full_diagnoses/1 show_answer.pl
+                                      show/1 
+
+show/1                  show_answer.pl
+                                      do_explain/2 
+
+show_all_facts/0        main.pl       do_te_choice/1 
+
+show_all_goals/0        main.pl       do_te_choice/1 
+
+show_all_questions/0    main.pl       do_te_choice/1 
+
+show_all_rules/0        main.pl       do_te_choice/1 
+
+show_certainty_for_trace/3
+                        explore.pl    NOT CALLED
+
+show_conds/1            main.pl       show_rule/1 show_conds/1 
+
+show_dd_mi/2            explore.pl    more_investigation/4 
+
+show_diagnosis/3        show_answer.pl
+                                      select_full_diagnoses/1 show_diagnosis/3 
+
+show_diff_diag/1        explore.pl    do_main_choice/2 show_dd_mi/2 
+
+show_fact/1             main.pl       show_all_facts/0 
+
+show_question/1         main.pl       aux_htq/2 show_all_questions/0 do_show_specified_question/1 
+
+show_rule/1             main.pl       report_result_aht/2 do_show_specified_rule/1 show_all_rules/0 trace_usage/2 
+                                      show_certainty_for_trace/3 
+
+show_rule_type/1        main.pl       show_question/1 
+
+show_solve/1            explore.pl    show_diff_diag/1 show_solve/1 
+
+show_specified_question/1
+                        main.pl       do_te_choice/1 
+
+show_specified_rule/2   main.pl       do_te_choice/1 
+
+show_trace/1            user_answer.pl
+                                      process_reply_ic/3 show_trace/1 
+
+show_tree1/1            show_answer.pl
+                                      show_tree_explain/1 do_command/3 
+
+show_tree2/2            show_answer.pl
+                                      show_tree1/1 
+
+show_tree3/4            show_answer.pl
+                                      show_tree2/2 
+
+show_tree_explain/1     show_answer.pl
+                                      select_explanation/3 show_tree_explain/1 
+
+show_values/2           main.pl       show_question/1 show_values/2 
+
+siblings/3              show_answer.pl
+                                      show_tree2/2 
+
+solve/5                 explore.pl    investigate/3 more_investigation/4 more_solve/6 
+
+solve_and_mod/8         explore.pl    modify/6 create_soln_tree/9 
+
+sort_answer/2           explore.pl    do_main_choice/2 investigate/3 
+
+star_if_chosen/1        history.pl    print_menu_lines/3 
+
+threshold/1             main.pl       NOT CALLED
+
+tidy_dynamic_kb/0       main.pl       do_main_choice/2 
+
+title_message_start/1   explore.pl    title_page/2 
+
+title_page/2            explore.pl    go/0 
+
+trace_usage/2           explore.pl    solve_and_mod/8 
+
+use_file/3              utilities.pl  check_file_name/3 
+
+user_answer/3           user_answer.pl
+                                      explore/4 
+
+video/1                 utilities.pl  write_caller/1 pause/1 title_page/2 show_tree1/1 pnumber/1 write_prompts/0 
+
+width_out/3             show_answer.pl
+                                      pnumber/1 width_out/3 
+
+write_branches/6        show_answer.pl
+                                      show_tree2/2 show_tree3/4 write_branches/6 
+
+write_caller/1          utilities.pl  main_menu/1 do_main_choice/2 
+
+write_nodes/5           show_answer.pl
+                                      show_tree2/2 show_tree3/4 write_nodes/5 
+
+write_prompts/0         show_answer.pl
+                                      show_tree_explain/1 do_command/3 
+
+writeall/1              explore.pl    input_answer/2 writeall/1 

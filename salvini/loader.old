@@ -1,0 +1,37 @@
+/****************************************************************************/
+/************* PROGRAM: loader **********************************************/
+/****************************************************************************
+ 
+ 	This program may be used and amended for non-profit making
+ 	purposes on condition that this header be left intact and in situ.
+ 
+ 	Copyright: Steven Salvini 1986, 1987, 1988
+ 
+ 	Amended:
+ 			Steven Salvini: 1987
+ 			Steven Salvini: 1988
+ 
+ ****************************************************************************/
+
+/****************************************************************************
+ 
+ 	loader:
+ 	loads in files required for 'dentest'
+ 
+ ****************************************************************************/
+
+:-    ([
+	-'/usr/local/lib/prolog/termcap',
+	-'/usr/local/lib/prolog/writef',
+	-'/u1/staff/steve/prolog/wee/ops.pl',
+	-'/u1/staff/steve/prolog/wee/explore.pl',
+	-'/u1/staff/steve/prolog/wee/main.pl',
+	-'/u1/staff/steve/prolog/wee/user_answer.pl',
+	-'/u1/staff/steve/prolog/wee/show_answer.pl',
+	-'/u1/staff/steve/prolog/wee/history.pl',
+	-'/u1/staff/steve/prolog/wee/utilities.pl'
+	]).
+
+/****************************************************************************/
+/************* END OF PROGRAM: loader ***************************************/
+/****************************************************************************/

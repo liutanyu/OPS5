@@ -1,0 +1,187 @@
+
+Received: from solaris.cs.hw.ac.uk (solaris) by brahma.cs.hw.ac.uk; Mon, 29 Aug 88 09:33:57 BST
+From: Steven Salvini <steve@uk.ac.hw.cs>
+Date: Mon, 29 Aug 88 09:33:39 BST
+Message-Id: <6672.8808290833@solaris.cs.hw.ac.uk>
+To: popx@uk.ac.oxford.vax
+Subject: xref (imports/exports) listing
+
+FILE  ops.pl
+
+%declarations%
+
+%end%
+
+
+FILE  utilities.pl
+
+%declarations%
+
+:- public
+		banner/1,
+		bc/1,
+		check_any_rb_loaded/0,
+		clause_is_a/2,
+		clear_screen/0,
+		conc/3,
+		conc_atom/3,
+		htab/0,
+		input_integer/1,
+		input_number/3,
+		input_yes_no/1,
+		invert/2,
+		max/3,
+		means/3,
+		member/2,
+		min/3,
+		modulus/2,
+		new_prompt/0,
+		pause/1,
+		pstring/1,
+		pstring/2,
+		read_word/1,
+		read_word/2,
+		remove_duplicates/2,
+		remove_duplicates/3,
+		retract_unknowns/0,
+		reverse/2,
+		video/1,
+		write_caller/1.
+
+%end%
+
+
+FILE  main.pl
+
+%declarations%
+
+:- public
+		do_show_specified_rule/1,
+		go/0,
+		show_rule/1.
+
+% imports:
+%		check_any_rb_loaded/0   (from utilities.pl)
+%		clause_is_a/2           (from utilities.pl)
+%		clear_screen/0          (from utilities.pl)
+%		conc_atom/3             (from utilities.pl)
+%		explain/1               (from show_answer.pl)
+%		input_history/0         (from history.pl)
+%		input_integer/1         (from utilities.pl)
+%		input_number/3          (from utilities.pl)
+%		input_yes_no/1          (from utilities.pl)
+%		investigate/2           (from explore.pl)
+%		member/2                (from utilities.pl)
+%		new_prompt/0            (from utilities.pl)
+%		pause/1                 (from utilities.pl)
+%		print_menu_lines/3      (from history.pl)
+%		pstring/1               (from utilities.pl)
+%		read_word/2             (from utilities.pl)
+%		retract_all/1           (from explore.pl)
+%		show_diff_diag/1        (from explore.pl)
+%		sort_answer/2           (from explore.pl)
+%		title_page/2            (from explore.pl)
+%		write_caller/1          (from utilities.pl)
+
+%end%
+
+
+FILE  explore.pl
+
+%declarations%
+
+:- public
+		get_certainty/2,
+		investigate/2,
+		retract_all/1,
+		show_diff_diag/1,
+		sort_answer/2,
+		title_page/2.
+
+% imports:
+%		banner/1                (from utilities.pl)
+%		clause_is_a/2           (from utilities.pl)
+%		clear_screen/0          (from utilities.pl)
+%		conc/3                  (from utilities.pl)
+%		htab/0                  (from utilities.pl)
+%		input_yes_no/1          (from utilities.pl)
+%		invert/2                (from utilities.pl)
+%		max/3                   (from utilities.pl)
+%		member/2                (from utilities.pl)
+%		min/3                   (from utilities.pl)
+%		modulus/2               (from utilities.pl)
+%		not_askable/4           (from undefined)
+%		pause/1                 (from utilities.pl)
+%		pstring/1               (from utilities.pl)
+%		read_word/2             (from utilities.pl)
+%		remove_duplicates/3     (from utilities.pl)
+%		retract_unknowns/0      (from utilities.pl)
+%		reverse/2               (from utilities.pl)
+%		show_rule/1             (from main.pl)
+%		user_answer/3           (from user_answer.pl)
+%		video/1                 (from utilities.pl)
+
+%end%
+
+
+FILE  history.pl
+
+%declarations%
+
+:- public
+		input_history/0,
+		print_menu1/6,
+		print_menu_lines/3.
+
+% imports:
+%		clear_screen/0          (from utilities.pl)
+%		input_certainty/2       (from user_answer.pl)
+%		input_number/3          (from utilities.pl)
+%		input_yes_no/1          (from utilities.pl)
+%		member/2                (from utilities.pl)
+%		pause/1                 (from utilities.pl)
+%		pstring/1               (from utilities.pl)
+%		remove_duplicates/2     (from utilities.pl)
+
+%end%
+
+
+FILE  user_answer.pl
+
+%declarations%
+
+:- public
+		input_certainty/2,
+		user_answer/3.
+
+% imports:
+%		clear_screen/0          (from utilities.pl)
+%		means/3                 (from utilities.pl)
+%		print_menu1/6           (from history.pl)
+%		read_word/1             (from utilities.pl)
+
+%end%
+
+
+FILE  show_answer.pl
+
+%declarations%
+
+:- public
+		explain/1.
+
+% imports:
+%		clear_screen/0          (from utilities.pl)
+%		do_show_specified_rule/1(from main.pl)
+%		get_certainty/2         (from explore.pl)
+%		input_number/3          (from utilities.pl)
+%		input_yes_no/1          (from utilities.pl)
+%		modulus/2               (from utilities.pl)
+%		pause/1                 (from utilities.pl)
+%		pstring/2               (from utilities.pl)
+%		read_word/1             (from utilities.pl)
+%		video/1                 (from utilities.pl)
+
+%end%
+
+

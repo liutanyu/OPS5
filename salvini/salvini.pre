@@ -1,0 +1,108 @@
+                   PROLOG EXPERT SYSTEM BUILDING TOOL
+          Contributed by Steven Salvini, Heriot-Watt University
+                   Received on the 30th of August 1988
+                   Shelved on the 3rd of October 1988
+
+
+PROTEST EXPERT SYSTEM
+
+This is a  cut-down version of the expert system building tool produced
+by Steven Salvini as part of his M.Sc. dissertation in 1986.
+
+It comes as the following files:
+
+    SALVINI.PRE         - this file.
+
+    COMPAT.PL           - source.
+    TERM.PL
+    WRITEF.PL
+    OPS.PL
+    EXPLORE.PL
+    MAIN.PL
+    USER_ANSWER.PL
+    SHOW_ANSWER.PL
+    HISTORY.PL
+    UTILITIES.PL
+
+    DENTAL.PL           - knowledge bases.
+    WEE.PL
+
+    MANUAL.TXT          - the user manual.
+
+    XREF.TXT            - these are the original files, before
+    XREF1.TXT             I modified them.
+    DENTAL.OLD
+    EXPLORE.OLD
+    HISTORY.OLD
+    LOADER.OLD
+    MAIN.OLD
+    OPS.OLD
+    SHOW_ANSWER.OLD
+    TERM.OLD
+    TERMCAP.OLD
+    USER_ANSWER.OLD
+    UTILITIES.OLD
+    WEE.OLD
+    WRITEF.OLD
+    READ.ME
+
+
+To use Protest, consult LOADER.PL, and call 'go'.
+
+Protest is a  tool for building prototype expert  systems. Its knowledge
+bases  are written  in IF-THEN  rules whose  conditions and  conclusions
+consist of object/attribute/value triples:
+
+    rule1:
+        if
+                pain/duration/constant
+            and
+                pain/localisation/accurate
+            and
+                pain/'initiated by'/'gentle touch'
+            and
+                pain/character/'sudden onset'
+            and
+                pain/character/'intense & throbbing'
+            and
+                gingivae/swelling/present
+            and
+                gingivae/erythema/present
+            and
+                miscellaneous/'local lymphadenopathy'/present
+            and
+                pain/'initiated by'/'clenching, biting or chewing'
+            and
+                tooth/mobility/present
+        then
+            diagnosis/group/abscess
+        with
+            certainty(0.9).
+
+Conclusions may contain certainty factors.
+
+Inference can be either backward chaining or mixed. The former is normal
+backward  chaining, giving  a single  firm  conclusion if  one has  been
+deduced or  else as  a list of  possible conclusions  in order  of their
+certainties.
+
+Mixed mode  is a "mixed" inference  strategy which first prompts  you to
+enter your initial findings and then tries  to deduce one or more of the
+goals. If a firm  conclusion is not reached, it then  tries to solve the
+problem by backward-chaining.
+
+
+CHECKED ON EDINBURGH-COMPATIBLE (POPLOG) PROLOG : yes.
+
+    occasionally, some messages seem to  go missing, possibly because of
+    an incompatibility in terminals.
+
+PORTABILITY :
+
+    the terminal-control predicates are terminal-specific.
+
+
+INTERNAL DOCUMENTATION :
+
+    Each important predicate  comes with a brief  comment describing its
+    purpose. There is a user manual.

@@ -1,0 +1,85 @@
+/*  TERM.OLD  */                    
+
+
+/***************************************************************************
+*
+*       SYSTEM/TERMINAL DEPENDENT ROUTINES
+*           (set up for 910+ and ndr.)
+*
+***************************************************************************/
+
+
+/**************************************************************************
+
+    clear_screen:
+    sets terminal's screen display to all NULLs
+
+ **************************************************************************/
+
+clear_screen:-
+    put(27),    /* ASCII <escape> */
+    put(58).    /* ASCII * */
+
+/**************************************************************************
+
+    new_prompt:
+    changes prompt to an inverse "arrow"
+
+ **************************************************************************/
+
+new_prompt:-
+    prompt(Old,'G4 ---> G0'). /* 'inverse video' prompt on 910 & 925 */
+
+/***
+new_prompt:-
+    prompt(Old,'j ---> k').   'inverse video' prompt on 920
+***/
+
+new_prompt. /*** hack for Arity ***/
+
+/**************************************************************************
+
+    video:
+    sets current terminal mode to that specified by its argument
+
+    NB: 910 (& 925!) only...
+
+ **************************************************************************/
+
+video(reverse):-
+    inverse(on).
+
+video(normal):-
+    inverse(off).
+
+/*
+video(reverse):-
+    put(27),
+    put(71),
+    put(52).
+
+video(normal):-
+    put(27),
+    put(71),
+    put(48).
+
+video(blink_normal):-
+    put(27),
+    put(71),
+    put(50).
+
+video(blink_reverse):-
+    put(27),
+    put(71),
+    put(54).
+
+video(underline_normal):-
+    put(27),
+    put(71),
+    put(57).
+
+video(underline_reverse):-
+    put(27),
+    put(71),
+    put(60).
+*/

@@ -1,0 +1,237 @@
+/**************************************************************************/
+/****************  PROGRAM: history ***************************************/
+/**************************************************************************
+ 
+    This program may be used and amended for non-profit making
+    purposes on condition that this header be left intact and in situ.
+ 
+    Copyright: Steven Salvini 1988
+ 
+        (Developed from "history_options" & "history_menu" - SS: 1988)
+ 
+ **************************************************************************/
+
+/**************************************************************************
+ 
+    history:
+    Inputs initial history/investigation information
+    Input is optionally from a pre-prepared file or the keyboard.
+    Facts already present may be removed or retained as required.
+ 
+ **************************************************************************/
+
+input_history:-
+    findall(Object,Question:Object/Attribute/Value - M - T, All_objects),
+    remove_duplicates(All_objects, Objects),
+    object_history(Objects).
+
+input_history.  
+ 
+/**************************************************************************
+  
+    object_history:
+    input information about each Object mentioned in a 'question'
+ 
+ **************************************************************************/
+
+object_history([]).
+
+object_history([Object|Objects]):-
+    clear_screen,
+    write('Is there any information known about '),
+    write(Object),
+    write('? (yes/no)'),
+    nl,
+    input_yes_no(Answer),
+    do_ph(Answer,Object,Objects,Remaining_Objects),
+    object_history(Remaining_Objects).
+
+do_ph(quit,_,_,[]).
+
+do_ph(no,Object,Objects,Objects):-
+    asserta(fact:Object/A/V with certainty(0)). /* meta-rule instead? */
+
+do_ph(yes,Object,Objects,Objects):- 
+    clear_screen,
+    Question:Object/Attribute/Values - Message - Type,
+    print_menu1(Object,Attribute,Values,
+        ['A measure of your belief in this symptom/sign is required'],
+        Message,Type),
+    fail.
+
+do_ph(yes,_,Objects,Objects).
+
+/**************************************************************************
+  
+    print_menu2 & print_menu1:
+    Prints appropriate menu and inputs the user's selection
+ 
+    print_menu1:
+    used in interactive mode where an answer must be
+    given to all questions (even if it is 'don't know')
+ 
+    print_menu2:
+    used in silent mode where it is permissible to give no answer
+ 
+ **************************************************************************/
+
+print_menu1(Object,Attribute,Values,Trace,Message,Type):-
+    repeat,
+    clear_screen,
+    pstring(Message),nl,nl,
+    tab(5),
+    write('#0   HELP'),nl,
+    print_menu_lines(Values,1,Last),nl,
+    bottom_menu_line(Type,Last,Max),
+    write('Choose an option by entering its code number...'),nl,
+    input_number(0,Max,Choice),
+    do_asserts(Object,Attribute,Values,Trace,Choice,1,Type,Max),
+    !.
+
+bottom_menu_line(multiple,Last,Last):-
+/* prints final menu line as appropriate to processing mode and question type. */
+    tab(5),
+    write('#'),
+    write(Last),
+    tab(3),
+    write('No more information to enter'),
+    nl,nl,nl,!.
+
+bottom_menu_line(_,Last,Max):-
+    Max is Last - 1,
+    !.
+
+/**************************************************************************
+
+    Print_menu_lines:
+    prints 'Last' number of individual entries, one for each 'Value'
+ 
+ **************************************************************************/
+
+print_menu_lines([],Last,Last):-
+    !.
+print_menu_lines([Value|Values],Number,Last):-
+    tab(5),
+    write('#'),
+    write(Number),
+    star_if_chosen(Number),
+    write(Value),
+    nl,
+    Next is Number + 1,
+    print_menu_lines(Values,Next,Last),
+    !.
+
+star_if_chosen(Number):-    /* for use with 'multiple'-answer questions */
+    chosen(Choices),
+    member(Number,Choices),
+    write('** ').
+
+star_if_chosen(_):-
+    tab(3).
+
+/**************************************************************************
+  
+    do_asserts:
+    act on user's choice from menu
+ 
+ **************************************************************************/
+
+do_asserts(_,_,_,_,0,_,_,_):-   
+    nl,
+    write('Please select the option required by entering the associated number...'),
+    nl,
+    pause(' to re-enter...'),
+    !,
+    fail.
+
+do_asserts(Object,Attribute,Values,_,Number,_,multiple,Last):-
+    (                       /* no more information */
+        Last   = Number;
+        Number = quit
+    ),
+    retract(chosen(Choices)),
+    assert_non_choices(Object,Attribute,Values,Choices,0,1).
+
+do_asserts(_,_,_,_,Last,_,multiple,Last):-
+/* in interactive mode, at least one answer must be given EVEN in the case  */
+/* of 'multiple'-answer questions */
+    nl,
+    write('Please answer at least one option...'),
+    nl,
+    pause(' to re-enter...'),
+    !,
+    fail.
+
+do_asserts(Object,Attribute,[Value|Values],Trace,Number,Number,single,_):-
+    assertz(told:Object/Attribute/Value with certainty(1)),
+    assert_all(Object,Attribute,Values,-1).
+
+do_asserts(Object,Attribute,[Value|Values],Trace,Number,Index,single,Last):-
+    Next is Index + 1,
+    assertz(fact:Object/Attribute/Value with certainty(-1)),
+    do_asserts(Object,Attribute,Values,Trace,Number,Next,single,Last).
+
+do_asserts(Object,Attribute,[Value|Values],Trace,Number,Number,multiple,_):-
+    input_certainty(Trace,Certainty),
+    assertz(told:Object/Attribute/Value with certainty(Certainty)),
+    maintain_chosen(Number),
+    !,
+    fail.
+
+do_asserts(Object,Attribute,[Value|Values],Trace,Number,Index,multiple,Last):-
+    Next is Index + 1,
+    do_asserts(Object,Attribute,Values,Trace,Number,Next,multiple,Last).
+
+do_asserts(Object,Attribute,Values,Trace,Number,Index,opposite,_):-
+    acc_do_asserts(Object,Attribute,Values,Trace,Number,Index,[]).
+
+maintain_chosen(Number):-
+    retract(chosen(Choices)),
+    aux_mc(Number,Choices).
+
+maintain_chosen(Number):-
+    assert(chosen([Number])).
+
+aux_mc(Number,Choices):-
+    member(Number,Choices),
+    assert(chosen(Choices)).
+
+aux_mc(Number,Choices):-
+    assert(chosen([Number|Choices])).
+
+acc_do_asserts(Object,Attribute,[Value|Values],Trace,Number,Number,PrevVs):-
+    nl,
+    write('What certainty do you associate with this?'),
+    nl,
+    input_certainty(Trace,Certainty),
+    assertz(told:Object/Attribute/Value with certainty(Certainty)),
+    InvC is -Certainty,
+    assert_all(Object,Attribute,Values,InvC),
+    assert_all(Object,Attribute,PrevVs,InvC).
+
+acc_do_asserts(Object,Attribute,[Value|Values],Trace,Number,Index,PrevVs):-
+    Next is Index + 1,
+    acc_do_asserts(Object,Attribute,Values,Trace,Number,Next,[Value|PrevVs]).
+
+assert_all(_,_,[],_).   /* assert for each Value in a list of Values */
+
+assert_all(Object,Attribute,[Value|Values],Certainty):-
+    assertz(fact:Object/Attribute/Value with certainty(Certainty)),
+    assert_all(Object,Attribute,Values,Certainty).
+
+assert_non_choices(_,_,[],_,_,_).  /* assert for each Value in a list of Values */
+
+assert_non_choices(Object,Attribute,[Value|Values],Choices,Certainty,Number):-
+    aux_anc(Object,Attribute,Value,Choices,Number,Certainty),
+    Next is Number + 1,
+    assert_non_choices(Object,Attribute,Values,Choices,Certainty,Next).
+
+aux_anc(_,_,_,Choices,Number,_):-
+    member(Number,Choices).
+
+aux_anc(Object,Attribute,Value,_,_,Certainty):-
+    assertz(fact:Object/Attribute/Value with certainty(Certainty)).
+
+/****************************************************************************/
+/**************  END OF PROGRAM: history ************************************/
+/****************************************************************************/
